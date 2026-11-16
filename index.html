@@ -129,6 +129,11 @@ label.field > span { display: block; margin-bottom: 4px; }
   margin-top: 10px;
 }
 
+.scope { border: 1px solid #d5ddf2; }
+.scope h2 { font-size: 17px; }
+.scope ul { margin: 0; padding-left: 1.2em; font-size: 15px; }
+.scope li + li { margin-top: 4px; }
+
 .small {
   color: var(--muted);
   font-size: 12px;
@@ -221,6 +226,9 @@ label.field > span { display: block; margin-bottom: 4px; }
 
 .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
 .edit-grid .full { grid-column: 1 / -1; }
+.edit-error { color: var(--danger); font-weight: 700; margin: 8px 0 0; font-size: 14px; }
+.edit-error:empty { display: none; }
+textarea[aria-invalid="true"] { border-color: var(--danger); }
 .check { display: flex; gap: 8px; align-items: center; margin-top: 10px; min-height: var(--tap); }
 .check input { width: 22px; height: 22px; }
 
@@ -260,8 +268,18 @@ label.field > span { display: block; margin-bottom: 4px; }
 
 <header>
   <h1>Classi AI Assistant</h1>
-  <p>Classiの情報整理をAIがサポート</p>
+  <p>Classiの情報整理と、AIへの相談文づくりをサポート</p>
 </header>
+
+<section class="card scope" id="scope" aria-labelledby="scope-title">
+  <h2 id="scope-title">このアプリでできること・できないこと</h2>
+  <ul>
+    <li><strong>できること：</strong>スクリーンショットの文字を読み取り、課題・お知らせ・期限を整理して、<strong>AIへの質問文を作る</strong>ところまでです。</li>
+    <li><strong>AIには接続しません。</strong>整理・分類はキーワードによる自動判定です。AIが自分で判断したり、行動したりすることはありません。</li>
+    <li><strong>Classiを操作しません。</strong>ログイン、課題の提出、メッセージの送信などの自動操作は一切行いません。</li>
+    <li>AIに相談するときは、作った質問文を<strong>自分でコピーして貼り付けて</strong>ください。結果は必ず本人がClassiで確認してください。</li>
+  </ul>
+</section>
 
 <div class="layout">
 <div class="col-side">
@@ -310,6 +328,7 @@ label.field > span { display: block; margin-bottom: 4px; }
     placeholder="整理した内容からAIへの質問を作ります"></textarea>
   <button id="copy">AIへの質問をコピー</button>
   <p class="small">
+    このアプリはAIに接続せず、質問文を作るだけです。
     コピーした文章をClaudeに貼り付けてください。
     個人情報は先に隠してください。
   </p>
@@ -323,6 +342,8 @@ label.field > span { display: block; margin-bottom: 4px; }
 <script type="module">
 /*
  * 安全方針
+ * - このアプリはAIへの質問文を生成するだけ。AIのAPIには接続せず、AIによる自律判断もしない
+ *   （整理・分類はキーワードによるルール判定）
  * - Classiの認証情報は扱わない（入力欄も保存処理もない）
  * - Classiへのログイン・アクセス・提出・送信は一切行わない
  * - 画像・読み取り結果・履歴を外部へ送信しない（OCRはブラウザ内で実行）
@@ -704,7 +725,8 @@ function renderEditor(item) {
   save.addEventListener("click", () => {
     const newTitle = title.value.trim();
     if (!newTitle) {
-      status.textContent = "内容を入力してください";
+      error.textContent = "内容を入力してください";
+      title.setAttribute("aria-invalid", "true");
       title.focus();
       return;
     }
@@ -741,8 +763,12 @@ function renderEditor(item) {
     updatePrompt();
   });
 
+  const error = el("p", "edit-error");
+  error.setAttribute("role", "alert");
+  title.addEventListener("input", () => { error.textContent = ""; title.removeAttribute("aria-invalid"); });
+
   actions.append(save, cancel, del);
-  card.append(grid, actions);
+  card.append(grid, error, actions);
   return card;
 }
 
