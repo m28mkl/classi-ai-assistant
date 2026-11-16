@@ -32,6 +32,11 @@ module.exports = defineConfig({
       use: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
     },
     {
+      // iPadのSplit View・スマートフォンの細い幅（幅は tests/splitview.spec.js の中で指定）
+      name: "split-view",
+      testMatch: /splitview\.spec\.js/,
+    },
+    {
       // OCRの読み込み・エラー処理・実際の文字認識（iPad Air 縦向き、Chromium）
       name: "ocr",
       testMatch: /ocr\.spec\.js/,
