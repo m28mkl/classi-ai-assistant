@@ -132,6 +132,37 @@ label.field > span { display: block; margin-bottom: 4px; }
 #status.error { color: var(--danger); font-weight: 700; }
 #ocr-progress { width: 100%; height: 10px; margin: 0 0 8px; accent-color: var(--accent); }
 button[aria-busy="true"] { cursor: progress; }
+.ocr-options { margin-top: 10px; border-top: 1px solid #edf0f6; padding-top: 6px; }
+.ocr-options summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
+.ocr-options .check { font-size: 15px; }
+/* タップしやすいよう、チェックボックスの押せる範囲を高さ44pxにする（見た目の四角は26px） */
+.ocr-options .check { align-items: center; }
+.ocr-options .check input { flex: none; width: 26px; height: var(--tap); margin: 0; accent-color: var(--accent); }
+.review h3 { font-size: 16px; margin: 18px 0 6px; }
+.review h3 .count { color: var(--muted); font-weight: 400; font-size: 14px; }
+.review-image summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
+#review-canvas { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.legend .sw { display: inline-block; width: 14px; height: 10px; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
+.sw-ex { background: rgba(100, 110, 130, .55); }
+.sw-line { border: 2px solid #2f6fe0; }
+.sw-unc { border: 2px solid #e0312f; }
+.review-field { margin-top: 10px; }
+.review-field > span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.review-field textarea { min-height: 60px; }
+.review-field input[type="text"].lang-en, .review-field textarea.lang-en { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; letter-spacing: .01em; }
+.choice-row { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; margin-top: 8px; }
+.choice-row .choice-label { font-weight: 700; font-size: 18px; text-align: center; }
+.review-list { list-style: none; margin: 0; padding: 0; }
+.review-list li { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf0f6; font-size: 14px; overflow-wrap: anywhere; }
+.review-list canvas { flex: none; max-width: 140px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.review-list .tag { flex: none; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
+.review-list .empty-note { color: var(--muted); }
+.review-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
+.review-diff > div { background: #f7f8fb; border-radius: 8px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.review-diff h4 { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+.review-diff del { color: var(--danger); background: var(--danger-bg); }
+.review-diff ins { color: var(--ok); background: var(--ok-bg); text-decoration: none; }
+@media (max-width: 600px) { .review-diff { grid-template-columns: 1fr; } }
 .selftest { margin-top: 10px; border-top: 1px solid #edf0f6; padding-top: 6px; }
 .selftest summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
 #selftest-result { margin-top: 10px; font-size: 14px; overflow-wrap: anywhere; }
@@ -304,6 +335,12 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
   <p id="status" role="status" aria-live="polite">待機中</p>
   <progress id="ocr-progress" max="1" value="0" hidden aria-label="読み取りの進み具合"></progress>
   <p class="small">画像の読み取りはこの端末のブラウザ内で行います。画像や読み取り結果を外部に送信することはありません。初回はOCRエンジンと日本語・英語の言語データ（合計約9MB）をダウンロードするため、少し時間がかかります。</p>
+  <details class="ocr-options">
+    <summary>読み取りの設定</summary>
+    <label class="check"><input type="checkbox" id="opt-exclude-ui" checked> 画面の上下のバー・動画・回答ボタンなどを除外して読み取る</label>
+    <label class="check"><input type="checkbox" id="opt-preprocess" checked> 画像を読み取りやすく加工する（拡大・グレースケール・コントラスト調整・二値化を比較）</label>
+    <p class="small">加工は読み取り用のコピーに対して行い、選んだ画像そのものは変更しません。</p>
+  </details>
   <details class="selftest">
     <summary>OCRが動くか確認する（サンプル画像で動作チェック）</summary>
     <p class="small">この端末で作ったサンプル画像（個人情報なし）を読み取り、日本語と英語が認識できるかを確認します。</p>
@@ -329,6 +366,26 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
 
 </div>
 <div class="col-main">
+
+<section class="card review" id="review" hidden aria-labelledby="review-title">
+  <h2 id="review-title">読み取り結果の確認</h2>
+  <p class="small">自動で読み取った内容です。元の画像と見比べて、違うところを直してから「読み取った情報に反映」を押してください。
+    読み取りに自信がない部分と、自動で直した箇所は下に表示しています。正しいかどうかは、必ず画像で確かめてください。</p>
+  <details class="review-image" open>
+    <summary>元の画像と見比べる</summary>
+    <canvas id="review-canvas" aria-label="元の画像と読み取った範囲"></canvas>
+    <p class="small legend"><span class="sw sw-ex"></span>読み取りから除外した部分　<span class="sw sw-line"></span>読み取った行　<span class="sw sw-unc"></span>自信がない部分</p>
+  </details>
+  <div id="review-fields"></div>
+  <h3>読み取りに自信がない部分 <span class="count" id="review-uncertain-count"></span></h3>
+  <ul id="review-uncertain" class="review-list"></ul>
+  <h3>自動で直した箇所 <span class="count" id="review-changes-count"></span></h3>
+  <ul id="review-changes" class="review-list"></ul>
+  <h3>修正前と修正後の比較</h3>
+  <p class="small">修正前：OCRが読み取ったまま（自動修正の前）。修正後：自動修正とあなたの編集を反映した内容。<del>赤の取り消し線</del>は消えた文字、<ins>緑</ins>は加わった文字です。</p>
+  <div class="review-diff" id="review-diff"></div>
+  <button id="review-apply">読み取った情報に反映</button>
+</section>
 
 <div class="card">
   <h2>③ 課題・期限の整理</h2>
@@ -358,6 +415,8 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
 
 </div>
 
+<!-- OCRの精度改善パイプライン（同じサイトのファイル。外部への通信はしない） -->
+<script src="ocr-pipeline.js"></script>
 <script type="module">
 /*
  * 安全方針
@@ -1005,7 +1064,7 @@ const OCR_STAGE_LABEL = {
  * 画像（File/Blob または canvas）の文字を読み取る。
  * Worker は毎回作り、成功・失敗にかかわらず必ず終了させる（iPad のメモリを解放するため）。
  */
-async function recognizeImage(source, onProgress = () => {}) {
+async function recognizeImage(source, onProgress = () => {}, options = {}) {
   onProgress({ label: "画像を準備中", progress: 0 });
   const canvas = source instanceof HTMLCanvasElement ? source : await imageToCanvas(source);
 
@@ -1063,14 +1122,28 @@ async function recognizeImage(source, onProgress = () => {}) {
     }
 
     kick();
-    let data;
+    let result;
     try {
-      ({ data } = await Promise.race([worker.recognize(canvas), initFailedPromise, watchdogPromise]));
+      if (window.ClassiOcr) {
+        // 改善版：不要なUIの除外・前処理・日本語と英語を分けた読み直し・後処理・問題の構造化（ocr-pipeline.js）
+        const run = window.ClassiOcr.runPipeline(worker, canvas, {
+          excludeUi: options.excludeUi !== false,
+          preprocess: options.preprocess !== false,
+          onProgress: (p) => { kick(); onProgress(p); },
+        });
+        result = await Promise.race([run, initFailedPromise, watchdogPromise]);
+      } else {
+        const { data } = await Promise.race([worker.recognize(canvas), initFailedPromise, watchdogPromise]);
+        result = { text: data.text || "", raw: data.text || "", structured: null, lines: [] };
+      }
     } catch (error) {
       throw error instanceof OcrError ? error : ocrError("RECOGNIZE", error);
     }
+    // 位置情報のない結果（改善版を使えなかった場合）は、従来どおり文字の間の空白だけ整える
+    if (!result.lines || !result.lines.length) result.text = cleanupOcrText(result.text || "");
+    result.source = canvas;
     onProgress({ label: "完了", progress: 1 });
-    return cleanupOcrText(data.text || "");
+    return result;
   } finally {
     clearTimeout(watchdog);
     if (worker) {
@@ -1137,6 +1210,203 @@ function showOcrError(error) {
   if (!(error instanceof OcrError)) console.warn(error);
 }
 
+/* ---------------- 読み取り結果の確認画面 ---------------- */
+const reviewEl = $("review");
+const reviewCanvas = $("review-canvas");
+const reviewFields = $("review-fields");
+const reviewUncertain = $("review-uncertain");
+const reviewChanges = $("review-changes");
+const reviewDiff = $("review-diff");
+let lastOcr = null;
+
+function readOptions() {
+  return { excludeUi: $("opt-exclude-ui").checked, preprocess: $("opt-preprocess").checked };
+}
+
+function hideReview() {
+  reviewEl.hidden = true;
+  lastOcr = null;
+}
+
+const QUESTION_FIELDS = [
+  ["title", "タイトル", "input", "ja"],
+  ["instruction", "問題文", "textarea", "ja"],
+  ["subNumber", "小問の番号", "input", "ja"],
+  ["subInstruction", "小問の問題文", "textarea", "ja"],
+  ["english", "英文", "textarea", "en"],
+  ["direction", "指示", "input", "ja"],
+  ["rewrite", "書き換え（⇒ の後）", "input", "en"],
+];
+
+function makeField(key, label, kind, lang, value) {
+  const wrap = el("label", "review-field");
+  wrap.append(el("span", "", label));
+  const input = document.createElement(kind === "textarea" ? "textarea" : "input");
+  if (kind !== "textarea") input.type = "text";
+  input.dataset.field = key;
+  input.lang = lang === "en" ? "en" : "ja";
+  if (lang === "en") { input.classList.add("lang-en"); input.autocapitalize = "off"; input.spellcheck = false; }
+  input.value = value || "";
+  input.addEventListener("input", renderReviewDiff);
+  wrap.append(input);
+  return wrap;
+}
+
+/** 元画像の一部を切り出した小さな画像（自信がない部分の確認用） */
+function cropThumb(source, rect, maxW = 140) {
+  const padX = rect.h * 0.4, padY = rect.h * 0.3;
+  const x = Math.max(0, rect.x - padX), y = Math.max(0, rect.y - padY);
+  const w = Math.min(source.width - x, rect.w + padX * 2), h = Math.min(source.height - y, rect.h + padY * 2);
+  const c = document.createElement("canvas");
+  const scale = Math.min(2, maxW / Math.max(1, w));
+  c.width = Math.max(1, Math.round(w * scale));
+  c.height = Math.max(1, Math.round(h * scale));
+  c.getContext("2d").drawImage(source, x, y, w, h, 0, 0, c.width, c.height);
+  return c;
+}
+
+/** 元の画像に、除外した部分・読み取った行・自信がない部分を重ねて描く */
+function drawReviewImage(ocr) {
+  const src = ocr.source;
+  const scale = Math.min(1, 1200 / src.width);
+  reviewCanvas.width = Math.round(src.width * scale);
+  reviewCanvas.height = Math.round(src.height * scale);
+  const ctx = reviewCanvas.getContext("2d");
+  ctx.drawImage(src, 0, 0, reviewCanvas.width, reviewCanvas.height);
+  const lay = ocr.layout;
+  if (lay && ocr.options?.excludeUi !== false) {
+    ctx.fillStyle = "rgba(100, 110, 130, .55)";
+    for (const b of lay.excluded) ctx.fillRect(0, b.y0 * scale, reviewCanvas.width, (b.y1 - b.y0 + 1) * scale);
+  }
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#2f6fe0";
+  for (const l of ocr.lines || []) ctx.strokeRect(l.rect.x * scale - 2, l.rect.y * scale - 2, l.rect.w * scale + 4, l.rect.h * scale + 4);
+  ctx.strokeStyle = "#e0312f";
+  for (const u of ocr.uncertain || []) ctx.strokeRect(u.rect.x * scale - 1, u.rect.y * scale - 1, u.rect.w * scale + 2, u.rect.h * scale + 2);
+}
+
+/** 確認画面の入力欄から問題の構造を作る */
+function reviewStructure() {
+  const q = { ...(lastOcr.structured || {}), choices: [], other: lastOcr.structured?.other || [] };
+  for (const input of reviewFields.querySelectorAll("[data-field]")) q[input.dataset.field] = input.value.trim();
+  for (const input of reviewFields.querySelectorAll("[data-choice]")) q.choices.push({ label: input.dataset.choice, text: input.value.trim() });
+  return q;
+}
+
+function reviewText() {
+  if (!lastOcr) return "";
+  if (lastOcr.structured) return window.ClassiOcr.formatQuestion(reviewStructure());
+  return reviewFields.querySelector("[data-field='body']")?.value ?? lastOcr.text;
+}
+
+function renderReviewDiff() {
+  if (!lastOcr) return;
+  const before = lastOcr.beforeFix || lastOcr.raw || "";
+  const after = reviewText();
+  const ops = window.ClassiOcr.diffTokens(before, after);
+  const left = el("div"), right = el("div");
+  left.append(el("h4", "", "修正前"));
+  right.append(el("h4", "", "修正後"));
+  // 表示用の空白：英単語どうし、英語と日本語の文字の間に空白を入れる（比較そのものは空白を無視している）
+  const JA_LETTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+  const sep = (prev, tok) => {
+    if (!prev) return "";
+    if (/[A-Za-z0-9.,!?;:)]$/.test(prev) && /^[A-Za-z0-9(⇒]/.test(tok)) return " ";
+    if (JA_LETTER.test(prev.slice(-1)) && /^[A-Za-z(⇒]/.test(tok)) return " ";
+    if (/[A-Za-z.,!?)]$/.test(prev) && (JA_LETTER.test(tok[0]) || tok === "（")) return " ";
+    return "";
+  };
+  let lp = "", rp = "";
+  for (const o of ops) {
+    if (o.text === "\n") {
+      if (o.op !== "add") { left.append("\n"); lp = ""; }
+      if (o.op !== "del") { right.append("\n"); rp = ""; }
+      continue;
+    }
+    if (o.op === "same" || o.op === "del") {
+      left.append(sep(lp, o.text));
+      left.append(o.op === "del" ? el("del", "", o.text) : o.text);
+      lp = o.text;
+    }
+    if (o.op === "same" || o.op === "add") {
+      right.append(sep(rp, o.text));
+      right.append(o.op === "add" ? el("ins", "", o.text) : o.text);
+      rp = o.text;
+    }
+  }
+  reviewDiff.replaceChildren(left, right);
+}
+
+function showReview(ocr) {
+  if (!ocr || !ocr.lines || !ocr.lines.length || !window.ClassiOcr) { hideReview(); return; }
+  lastOcr = ocr;
+  ocr.options = readOptions();
+  reviewFields.replaceChildren();
+  if (ocr.structured) {
+    for (const [key, label, kind, lang] of QUESTION_FIELDS) reviewFields.append(makeField(key, label, kind, lang, ocr.structured[key]));
+    const box = el("div", "review-field");
+    box.append(el("span", "", "選択肢（画面の順番のまま）"));
+    for (const c of ocr.structured.choices) {
+      const row = el("label", "choice-row");
+      row.append(el("span", "choice-label", c.label));
+      const input = document.createElement("input");
+      input.type = "text";
+      input.dataset.choice = c.label;
+      input.lang = "en";
+      input.className = "lang-en";
+      input.autocapitalize = "off";
+      input.spellcheck = false;
+      input.value = c.text;
+      input.setAttribute("aria-label", `選択肢 ${c.label}`);
+      input.addEventListener("input", renderReviewDiff);
+      row.append(input);
+      box.append(row);
+    }
+    reviewFields.append(box);
+  } else {
+    reviewFields.append(makeField("body", "読み取った文章", "textarea", "ja", ocr.text));
+  }
+
+  reviewUncertain.replaceChildren();
+  for (const u of ocr.uncertain || []) {
+    const li = el("li");
+    li.append(cropThumb(ocr.source, u.rect), el("span", "", `「${u.text.trim()}」 確信度 ${u.confidence}%（${u.line + 1}行目）`));
+    reviewUncertain.append(li);
+  }
+  if (!reviewUncertain.children.length) reviewUncertain.append(el("li", "empty-note", "ありません"));
+  $("review-uncertain-count").textContent = `${(ocr.uncertain || []).length}件`;
+
+  reviewChanges.replaceChildren();
+  // 同じ修正はまとめて「×回数」で表示する
+  const grouped = new Map();
+  for (const c of ocr.changes || []) {
+    const key = `${c.from}\u0000${c.to}\u0000${c.reason}`;
+    if (grouped.has(key)) grouped.get(key).count++;
+    else grouped.set(key, { ...c, count: 1 });
+  }
+  for (const c of grouped.values()) {
+    const li = el("li");
+    if (c.uncertain) li.append(el("span", "tag", "要確認"));
+    li.append(el("span", "", `「${c.from}」→「${c.to}」${c.count > 1 ? ` ×${c.count}` : ""}：${c.reason}`));
+    reviewChanges.append(li);
+  }
+  if (!reviewChanges.children.length) reviewChanges.append(el("li", "empty-note", "ありません"));
+  $("review-changes-count").textContent = `${(ocr.changes || []).length}件`;
+
+  drawReviewImage(ocr);
+  renderReviewDiff();
+  reviewEl.hidden = false;
+  log("読み取り結果の確認画面を表示");
+}
+
+$("review-apply").addEventListener("click", () => {
+  if (!lastOcr) return;
+  result.value = reviewText();
+  status.classList.remove("error");
+  status.textContent = "確認した内容を「読み取った情報」に反映しました";
+  log("確認した内容を「読み取った情報」に反映");
+});
+
 /* ---------------- 操作 ---------------- */
 read.addEventListener("click", async () => {
   if (ocrBusy) return;
@@ -1150,12 +1420,15 @@ read.addEventListener("click", async () => {
   status.classList.remove("error");
   status.textContent = "文字を読み取っています...";
   log("画像の読み取りを開始");
+  hideReview();
 
   try {
-    const text = await recognizeImage(image.files[0], showProgress);
+    const ocr = await recognizeImage(image.files[0], showProgress, readOptions());
+    const text = ocr.text;
     result.value = text;
     status.textContent = "読み取り完了！";
     log(`画像の読み取り完了（${text.split(/\n/).filter((l) => l.trim()).length}行）`);
+    showReview(ocr);
   } catch (error) {
     showOcrError(error);
     log("画像の読み取りに失敗");
@@ -1202,7 +1475,7 @@ selftestButton.addEventListener("click", async () => {
   const preview = canvas.cloneNode();
   preview.getContext("2d").drawImage(canvas, 0, 0);
   try {
-    const text = await recognizeImage(canvas, showProgress);
+    const text = (await recognizeImage(canvas, showProgress)).text;
     const seconds = ((performance.now() - started) / 1000).toFixed(1);
     const { ok, checks } = judgeSelftest(text);
     const verdict = el("p", `verdict ${ok ? "ok" : "ng"}`, ok ? "成功：日本語と英語を読み取れました" : "一部読み取れませんでした");
