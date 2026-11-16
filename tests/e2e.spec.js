@@ -37,7 +37,8 @@ test.beforeEach(async ({ page }) => {
   });
   await page.clock.install({ time: NOW });
   await installFakeTesseract(page, { text: OCR_TEXT });
-  await page.route("**/*", (route) => {
+  // blob: や data: のURL（端末内のデータ）は外部通信ではないので、http(s) だけを対象にする
+  await page.route(/^https?:\/\//, (route) => {
     const url = route.request().url();
     if (url.startsWith("http://127.0.0.1")) return route.continue();
     externalRequests.push({ url, method: route.request().method(), body: route.request().postData() });

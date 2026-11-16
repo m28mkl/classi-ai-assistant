@@ -28,7 +28,9 @@ const MSG = {
 const flat = (s) => s.replace(/\s+/g, "");
 
 /**
- * ネットワークの準備。127.0.0.1 以外への通信はすべて記録し、OCR関連の固定URLだけを許可する。
+ * ネットワークの準備。127.0.0.1 以外への http(s) 通信はすべて記録し、OCR関連の固定URLだけを許可する。
+ * blob: や data: のURL（端末内のメモリ上のデータ。tesseract.js は blob: URL で Web Worker を起動する）は
+ * 外部への通信ではないので対象にしない（WebKit ではこれらもルートの対象になるため、http(s) だけに限定する）。
  * - assets: "local"（node_modules の本物を返す）／"online"（本物のCDNへ通信する）
  * - block : 指定した種類（"library" | "lang"）の取得を失敗させる
  * - tamper: ライブラリの中身を書き換えて返す（SRIの確認用）
@@ -36,7 +38,7 @@ const flat = (s) => s.replace(/\s+/g, "");
  */
 async function setupNetwork(context, { assets = "local", block = [], tamper = false, delayMs = 0 } = {}) {
   const external = [];
-  await context.route("**/*", async (route) => {
+  await context.route(/^https?:\/\//, async (route) => {
     const req = route.request();
     const url = req.url();
     if (url.startsWith("http://127.0.0.1")) return route.continue();
@@ -76,6 +78,20 @@ test.afterEach(() => {
 async function selectAndRead(page, file = TINY_PNG) {
   await page.setInputFiles("#image", file);
   await page.click("#read");
+}
+
+/** OCRが終わる（完了またはエラー）まで待ち、完了していることを確認する。エラーならすぐに失敗させる */
+async function expectOcrDone(page, timeout = 150000) {
+  const status = page.locator("#status");
+  await expect(status).toHaveText(/読み取り完了！|読み取りエラー/, { timeout });
+  await expect(status).toHaveText("読み取り完了！", { timeout: 1 });
+}
+
+/** 動作チェックが終わるまで待ち、「成功」であることを確認する */
+async function expectSelftestOk(page, timeout = 150000) {
+  const verdict = page.locator("#selftest-result .verdict");
+  await expect(verdict).toBeVisible({ timeout });
+  await expect(verdict, await page.locator("#selftest-result").textContent()).toHaveAttribute("data-result", "ok");
 }
 
 async function expectIdle(page) {
@@ -262,7 +278,7 @@ test.describe("D. 実際のOCR（本物のライブラリ・エンジン・言�
     const external = await setupNetwork(context);
     await page.goto("/index.html");
     await selectAndRead(page, SAMPLE);
-    await expect(page.locator("#status")).toHaveText("読み取り完了！", { timeout: 150000 });
+    await expectOcrDone(page);
 
     const text = await page.inputValue("#result");
     const f = flat(text);
@@ -290,7 +306,7 @@ test.describe("D. 実際のOCR（本物のライブラリ・エンジン・言�
 
     // 2回目は言語データをダウンロードし直さない（ブラウザ内のキャッシュを使う）
     await page.click("#read");
-    await expect(page.locator("#status")).toHaveText("読み取り完了！", { timeout: 150000 });
+    await expectOcrDone(page);
     expect(external.filter((r) => r.url === OCR_URLS.jpn).length).toBe(1);
     expect(external.filter((r) => r.url === OCR_URLS.eng).length).toBe(1);
   });
@@ -301,9 +317,7 @@ test.describe("D. 実際のOCR（本物のライブラリ・エンジン・言�
     await page.click(".selftest summary");
     await page.click("#ocr-selftest");
     await expect(page.locator("#ocr-selftest")).toBeDisabled();
-    const verdict = page.locator("#selftest-result .verdict");
-    await expect(verdict).toBeVisible({ timeout: 150000 });
-    await expect(verdict, await page.locator("#selftest-result").textContent()).toHaveAttribute("data-result", "ok");
+    await expectSelftestOk(page);
     await expect(page.locator("#selftest-result")).toContainText("Tesseract.js 5.1.1");
     await expect(page.locator("#history")).toContainText("OCRの動作チェック：成功");
     await expectIdle(page);
@@ -346,7 +360,7 @@ test.describe("E. CDN上の本物での確認（OCR_ONLINE=1）", () => {
     const external = await setupNetwork(context, { assets: "online" });
     await page.goto("/index.html");
     await selectAndRead(page, SAMPLE);
-    await expect(page.locator("#status")).toHaveText("読み取り完了！", { timeout: 200000 });
+    await expectOcrDone(page, 200000);
     const f = flat(await page.inputValue("#result"));
     for (const word of ["課題プリント", "提出期限", "2026年11月20日", "保護者会"]) expect(f).toContain(word);
     expectOnlyOcrDownloads(external);
@@ -357,8 +371,6 @@ test.describe("E. CDN上の本物での確認（OCR_ONLINE=1）", () => {
     await page.goto("/index.html");
     await page.click(".selftest summary");
     await page.click("#ocr-selftest");
-    const verdict = page.locator("#selftest-result .verdict");
-    await expect(verdict).toBeVisible({ timeout: 200000 });
-    await expect(verdict, await page.locator("#selftest-result").textContent()).toHaveAttribute("data-result", "ok");
+    await expectSelftestOk(page, 200000);
   });
 });
