@@ -72,7 +72,7 @@ header p { margin: 0; opacity: .9; }
 /* iPad Air（縦 820px / 横 1180px）向けレイアウト */
 .layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0 18px;
 }
 @media (min-width: 1000px) {
@@ -148,7 +148,7 @@ button[aria-busy="true"] { cursor: progress; }
 
 .small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* ---------- 課題カード ---------- */
@@ -272,6 +272,113 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
 #history time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .history-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .history-head h2 { margin: 0; }
+
+/* ---------- Split View（Classiの隣に並べる）用 ---------- */
+/* 画面上部に固定するジャンプメニュー（右側の画面だけで操作できるように） */
+html { scroll-padding-top: 72px; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.jump {
+  position: sticky;
+  top: max(0px, env(safe-area-inset-top));
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  margin: -6px 0 10px;
+  background: var(--bg);
+}
+.jump a {
+  flex: 1 1 0;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e4e9f5;
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.jump a:active { background: var(--brand); color: white; }
+
+.howto { padding: 0 18px; }
+.howto summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
+.howto ol { margin: 0 0 14px; padding-left: 1.4em; font-size: 15px; }
+.howto li + li { margin-top: 4px; }
+
+.check-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; min-height: var(--tap); }
+/* タップしやすい大きさ（44px）のチェックボックス */
+.check-row input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  margin: 0;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  display: grid;
+  place-content: center;
+}
+.check-row input:checked { background: var(--accent); border-color: var(--accent); }
+.check-row input:checked::after { content: "✓"; color: white; font-size: 26px; line-height: 1; }
+.check-row input:focus-visible { outline: 3px solid #9db4f5; outline-offset: 2px; }
+
+/* ---------- 読み取り結果の確認（要確認） ---------- */
+#review { margin-top: 12px; }
+#review h3, .ex-item h3 { margin: 0 0 6px; font-size: 16px; }
+.review-note { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.review-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.review-row { background: var(--warn-bg); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; }
+.review-row.done { background: #f4f5f8; }
+.review-row .line { margin: 4px 0; font-size: 16px; white-space: pre-wrap; }
+.review-row mark { background: #ffd54a; color: inherit; border-radius: 3px; padding: 0 1px; }
+.review-row .meta { font-size: 13px; color: var(--muted); margin: 0; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.review-actions button { flex: 1 1 auto; margin: 0; }
+.badge.b-check { background: var(--warn); color: white; }
+.badge.b-done { background: var(--ok-bg); color: var(--ok); }
+.badge.b-pre { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+.confirm-state { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: var(--warn); }
+.confirm-state.ok { color: var(--ok); }
+
+/* ---------- AI解説（AI接続前） ---------- */
+.ai-banner { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); font-size: 14px; }
+.ex-item { border-top: 1px solid #edf0f6; padding: 12px 0 4px; }
+.ex-item:first-of-type { border-top: 0; padding-top: 0; }
+.ex-item h3 .no { display: inline-block; min-width: 1.6em; color: var(--accent); }
+.ex-pending { margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; background: #f7f8fb; color: var(--muted); border: 1px dashed var(--line); font-size: 14px; }
+.q-label { margin: 8px 0 2px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.q-stem { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.q-line { margin: 0 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.q-choices { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.q-choices li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 8px 10px; background: var(--task-bg); border-radius: 10px; overflow-wrap: anywhere; }
+.q-choices .marker { font-weight: 700; color: var(--accent); flex: none; }
+.q-choices .text { flex: 1 1 8em; min-width: 0; white-space: pre-wrap; }
+.q-type { margin: 0 0 6px; font-weight: 700; }
+#explain-prompt { min-height: 150px; }
+
+/* 狭い幅（iPadのSplit View・スマートフォン）：余白と見出しを小さくして、1列で見やすくする */
+@media (max-width: 640px) {
+  body {
+    padding: max(10px, env(safe-area-inset-top))
+             max(10px, env(safe-area-inset-right))
+             max(14px, env(safe-area-inset-bottom))
+             max(10px, env(safe-area-inset-left));
+  }
+  header { padding: 14px; margin-bottom: 10px; border-radius: 12px; }
+  header h1 { font-size: 20px; }
+  header p { font-size: 14px; }
+  .card { padding: 14px; border-radius: 12px; }
+  .card h2 { font-size: 18px; }
+  .howto { padding: 0 14px; }
+  .edit-grid { grid-template-columns: 1fr; }
+  textarea { min-height: 140px; }
+}
 </style>
 </head>
 
@@ -280,8 +387,15 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
 
 <header>
   <h1>Classi AI Assistant</h1>
-  <p>Classiの情報整理と、AIへの相談文づくりをサポート</p>
+  <p>Classiの隣に並べて使う、読み取り・整理・解説のサポート</p>
 </header>
+
+<nav class="jump" aria-label="画面の移動">
+  <a href="#sec-read">読み取る</a>
+  <a href="#sec-result">確認</a>
+  <a href="#sec-explain">解説</a>
+  <a href="#sec-tasks">課題</a>
+</nav>
 
 <section class="card scope" id="scope" aria-labelledby="scope-title">
   <h2 id="scope-title">このアプリでできること・できないこと</h2>
@@ -290,16 +404,33 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
     <li><strong>AIには接続しません。</strong>整理・分類はキーワードによる自動判定です。AIが自分で判断したり、行動したりすることはありません。</li>
     <li><strong>Classiを操作しません。</strong>ログイン、課題の提出、メッセージの送信などの自動操作は一切行いません。</li>
     <li>AIに相談するときは、作った質問文を<strong>自分でコピーして貼り付けて</strong>ください。結果は必ず本人がClassiで確認してください。</li>
+    <li><strong>学校や先生のルールを守ってください。</strong>AIの利用が禁止されている課題やテストには使わないでください。解説は学習の参考です。回答の提出は、本人が自分で判断して行ってください。</li>
   </ul>
 </section>
+
+<details class="card howto" id="howto">
+  <summary>iPadでClassiと並べて使う方法（Split View）</summary>
+  <ol>
+    <li>Safariで、このアプリのページを開きます（共有ボタン →「ホーム画面に追加」しておくと便利です）。</li>
+    <li>別のSafariウインドウ（またはタブ）で Classi を開きます。</li>
+    <li>画面上の「…」ボタン →「Split View」を選び、左にClassi、右にこのアプリを並べます。</li>
+    <li>Classiの画面でスクリーンショットを撮ります（電源ボタン＋音量を上げるボタン）。</li>
+    <li>右のこの画面で「ファイルを選択」→ 写真から選び、「画像を読み取る」を押します。</li>
+  </ol>
+  <p class="small">このアプリはClassiの画面を自動では読み取れません。スクリーンショットを選んだときだけ読み取ります。Split Viewの表示は、iPadOSのバージョンで少し違うことがあります。</p>
+</details>
 
 <div class="layout">
 <div class="col-side">
 
-<div class="card">
+<div class="card" id="sec-read">
   <h2>① 画面を読み取る</h2>
   <p>Classiのスクリーンショットを選択</p>
   <input type="file" id="image" accept="image/*">
+  <label class="check-row">
+    <input type="checkbox" id="enhance">
+    <span>画像を補正して読み取る（文字が薄い・小さいときに試す）</span>
+  </label>
   <button id="read">画像を読み取る</button>
   <p id="status" role="status" aria-live="polite">待機中</p>
   <progress id="ocr-progress" max="1" value="0" hidden aria-label="読み取りの進み具合"></progress>
@@ -312,10 +443,14 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
   </details>
 </div>
 
-<div class="card">
-  <h2>② 読み取った情報</h2>
+<div class="card" id="sec-result">
+  <h2>② 読み取った情報の確認・修正</h2>
   <textarea id="result"
     placeholder="ここにOCR結果が表示されます（手で直接修正できます）"></textarea>
+  <div id="review" aria-live="polite"></div>
+  <button id="confirm-text" class="secondary">この内容で合っています</button>
+  <p id="confirm-state" class="confirm-state" role="status">未確認</p>
+  <p class="small">読み取りは間違えることがあります。Classiの画面と見比べて、必要なら上の欄を直接修正してください。解説の質問文は、確認したあとに作れます。</p>
 </div>
 
 <div class="card">
@@ -327,11 +462,60 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
   <p class="small">履歴はこの画面を開いている間だけ保持され、保存・送信はされません。</p>
 </div>
 
+<div class="card" id="sec-privacy">
+  <h2>プライバシー</h2>
+  <p class="small">画像・読み取り結果・整理結果は、この画面を開いている間だけメモリに置かれ、端末にも外部にも保存されません。ログインIDやパスワードは扱いません。</p>
+  <button id="clear-all" class="danger">画面の内容をすべて消去</button>
+</div>
+
 </div>
 <div class="col-main">
 
-<div class="card">
-  <h2>③ 課題・期限の整理</h2>
+<div class="card" id="sec-explain">
+  <h2>③ 問題の整理とAI解説 <span class="badge b-pre">AI接続前</span></h2>
+  <p class="ai-banner" id="ai-status"><strong>AI接続前：</strong>AIはまだ接続されていません。<strong>下の「問題の種類」までは、キーワードによる自動判定（AIの判断ではありません）</strong>です。「問題の意味」以降は、AIを接続するまで作成されません。</p>
+
+  <section class="ex-item" data-ex="question" aria-labelledby="ex-h-question">
+    <h3 id="ex-h-question"><span class="no">1.</span>読み取った問題</h3>
+    <div id="ex-question-body"></div>
+  </section>
+  <section class="ex-item" data-ex="type" aria-labelledby="ex-h-type">
+    <h3 id="ex-h-type"><span class="no">2.</span>問題の種類</h3>
+    <div id="ex-type-body"></div>
+  </section>
+  <section class="ex-item" data-ex="meaning" aria-labelledby="ex-h-meaning">
+    <h3 id="ex-h-meaning"><span class="no">3.</span>問題の意味</h3>
+    <p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p>
+  </section>
+  <section class="ex-item" data-ex="method" aria-labelledby="ex-h-method">
+    <h3 id="ex-h-method"><span class="no">4.</span>解き方・考え方</h3>
+    <p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p>
+  </section>
+  <section class="ex-item" data-ex="candidates" aria-labelledby="ex-h-candidates">
+    <h3 id="ex-h-candidates"><span class="no">5.</span>回答候補</h3>
+    <p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p>
+  </section>
+  <section class="ex-item" data-ex="reason" aria-labelledby="ex-h-reason">
+    <h3 id="ex-h-reason"><span class="no">6.</span>回答の理由</h3>
+    <p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p>
+  </section>
+  <section class="ex-item" data-ex="pitfalls" aria-labelledby="ex-h-pitfalls">
+    <h3 id="ex-h-pitfalls"><span class="no">7.</span>間違えやすいポイント</h3>
+    <p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p>
+  </section>
+
+  <details class="selftest" id="explain-details" open>
+    <summary>AIに解説を頼む質問文を作る（自分でコピーして使う）</summary>
+    <p class="small">このアプリは文章を送信しません。確認した問題文から質問文を作り、ボタンを押したときだけコピーします。貼り付ける前に、名前などの個人情報が入っていないか確認してください。</p>
+    <textarea id="explain-prompt" readonly
+      placeholder="読み取り結果を確認したあと、ここに解説用の質問文が作られます"></textarea>
+    <button id="copy-explain">解説用の質問をコピー</button>
+    <p id="explain-status" class="small" role="status" aria-live="polite"></p>
+  </details>
+</div>
+
+<div class="card" id="sec-tasks">
+  <h2>④ 課題・期限の整理</h2>
   <button id="analyze">情報を整理する</button>
   <div class="toolbar">
     <div class="filters" id="filters" role="group" aria-label="表示の絞り込み"></div>
@@ -342,7 +526,7 @@ textarea[aria-invalid="true"] { border-color: var(--danger); }
 </div>
 
 <div class="card">
-  <h2>④ AIに相談する</h2>
+  <h2>⑤ AIに相談する</h2>
   <textarea id="prompt" readonly
     placeholder="整理した内容からAIへの質問を作ります"></textarea>
   <button id="copy">AIへの質問をコピー</button>
@@ -1002,12 +1186,15 @@ const OCR_STAGE_LABEL = {
 };
 
 /**
- * 画像（File/Blob または canvas）の文字を読み取る。
+ * 画像（File/Blob または canvas）の文字を読み取り、{ text, hasConfidence, uncertain } を返す。
+ * uncertain は「認識に自信がない行」（要確認）。options.enhance が true のときは、
+ * 読み取り前に画像をグレースケール化してコントラストを調整する（File/Blob のときだけ）。
  * Worker は毎回作り、成功・失敗にかかわらず必ず終了させる（iPad のメモリを解放するため）。
  */
-async function recognizeImage(source, onProgress = () => {}) {
+async function recognizeDetailed(source, onProgress = () => {}, options = {}) {
   onProgress({ label: "画像を準備中", progress: 0 });
   const canvas = source instanceof HTMLCanvasElement ? source : await imageToCanvas(source);
+  if (options.enhance && !(source instanceof HTMLCanvasElement)) enhanceCanvas(canvas);
 
   onProgress({ label: "OCRライブラリを読み込み中", progress: 0 });
   const Tesseract = await loadTesseract();
@@ -1070,7 +1257,7 @@ async function recognizeImage(source, onProgress = () => {}) {
       throw error instanceof OcrError ? error : ocrError("RECOGNIZE", error);
     }
     onProgress({ label: "完了", progress: 1 });
-    return cleanupOcrText(data.text || "");
+    return { text: cleanupOcrText(data.text || ""), ...collectUncertain(data) };
   } finally {
     clearTimeout(watchdog);
     if (worker) {
@@ -1079,6 +1266,11 @@ async function recognizeImage(source, onProgress = () => {}) {
       spawned.terminate();
     }
   }
+}
+
+/** 文字だけが必要なとき（動作チェックなど）用 */
+async function recognizeImage(source, onProgress = () => {}, options = {}) {
+  return (await recognizeDetailed(source, onProgress, options)).text;
 }
 
 /**
@@ -1105,6 +1297,356 @@ function cleanupOcrText(text) {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/* ---------------- 画像の補正（任意） ----------------
+ * グレースケール化と、明るさの幅を広げるコントラスト調整（上下1%を除いて引き伸ばす）。
+ * 白黒の2値化はしない（Tesseract が自分で行うため）。
+ */
+function enhanceImageData(imageData) {
+  const d = imageData.data;
+  const n = d.length / 4;
+  const gray = new Uint8ClampedArray(n);
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < n; i++) {
+    const g = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);
+    gray[i] = g;
+    hist[g]++;
+  }
+  const cut = n * 0.01;
+  let low = 0;
+  for (let acc = hist[0]; low < 255 && acc < cut; acc += hist[++low]);
+  let high = 255;
+  for (let acc = hist[255]; high > 0 && acc < cut; acc += hist[--high]);
+  // 明るさの幅が狭すぎるとき（ほぼ単色）は、ノイズを強めないようにグレースケール化だけ行う
+  const stretch = high - low >= 16;
+  const scale = stretch ? 255 / (high - low) : 1;
+  for (let i = 0; i < n; i++) {
+    const v = stretch ? Math.max(0, Math.min(255, Math.round((gray[i] - low) * scale))) : gray[i];
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+    d[i * 4 + 3] = 255;
+  }
+  return { low, high, stretched: stretch };
+}
+
+function enhanceCanvas(canvas) {
+  const ctx = canvas.getContext("2d");
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  enhanceImageData(img);
+  ctx.putImageData(img, 0, 0);
+}
+
+/* ---------------- OCRの自信度（要確認） ----------------
+ * Tesseract は行・単語ごとに 0〜100 の自信度（confidence）を返す。
+ * これより低い行を「要確認」として示す。目安の値であり、正解・不正解の判定ではない。
+ */
+const OCR_CONF = Object.freeze({ line: 70, word: 50 });
+
+function ocrLinesOf(data) {
+  if (Array.isArray(data?.lines) && data.lines.length) return data.lines;
+  const out = [];
+  for (const b of data?.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) out.push(l);
+  return out;
+}
+
+/** Tesseract の結果から、自信のない行を取り出す（自信度の情報がなければ hasConfidence: false） */
+function collectUncertain(data) {
+  const lines = ocrLinesOf(data);
+  const hasConfidence = lines.some((l) => typeof l.confidence === "number");
+  if (!hasConfidence) return { hasConfidence: false, uncertain: [] };
+  const uncertain = [];
+  for (const l of lines) {
+    const text = cleanupOcrLine(String(l.text ?? "").replace(/\s*\n+\s*/g, " "));
+    if (!text) continue;
+    const words = (l.words || [])
+      .filter((w) => typeof w.confidence === "number" && w.confidence < OCR_CONF.word && String(w.text ?? "").trim())
+      .map((w) => ({ text: cleanupOcrLine(String(w.text)), confidence: Math.round(w.confidence) }))
+      .filter((w) => w.text);
+    const conf = typeof l.confidence === "number" ? Math.round(l.confidence) : null;
+    if ((conf !== null && conf < OCR_CONF.line) || words.length) uncertain.push({ text, confidence: conf, words });
+  }
+  return { hasConfidence: true, uncertain };
+}
+
+/* ---------------- 問題文と選択肢の分け方 ----------------
+ * 選択肢の記号（①、(1)、ア.、A.、1.）が同じ種類で2行以上並んでいるところを選択肢とみなす。
+ * 選択肢の順番と記号は、読み取ったまま変えない。
+ */
+const MARKERS = [
+  ["circled", /^([①-⑳⑴-⒇])\s*/],
+  ["paren", /^([（(]\s*[0-9０-９ア-コA-Da-dＡ-Ｄａ-ｄ]\s*[)）])\s*/],
+  ["kana", /^([ア-コ])(?:\s*[.．)）:：、]\s*|[ \t　]+)/],
+  ["alpha", /^([A-Da-dＡ-Ｄａ-ｄ])\s*[.．)）:：]\s*/],
+  ["digit", /^([0-9０-９]{1,2}\s*[.．)）])\s*/],
+];
+
+function detectMarker(line) {
+  for (const [family, re] of MARKERS) {
+    const m = line.match(re);
+    if (m) return { family, marker: m[0].replace(/\s+/g, ""), rest: line.slice(m[0].length).trim() };
+  }
+  return null;
+}
+
+function parseQuestion(text) {
+  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const marks = lines.map((l) => detectMarker(l));
+
+  let chosen = null;
+  for (const [family] of MARKERS) {
+    const idx = marks.flatMap((m, i) => (m && m.family === family ? [i] : []));
+    if (idx.length < 2) continue;
+    if (family === "digit") {
+      // 「1. 2. 3.」は問題番号のことも多い。短い項目が2〜8個のときだけ選択肢とみなす
+      const avg = idx.reduce((sum, i) => sum + marks[i].rest.length, 0) / idx.length;
+      if (idx.length > 8 || avg > 30) continue;
+    }
+    if (!chosen || idx[0] < chosen.first) chosen = { family, first: idx[0], last: idx[idx.length - 1] };
+  }
+
+  if (!chosen) return { stemLines: lines, stem: lines.join("\n"), choices: [], afterLines: [], family: null };
+
+  const choices = [];
+  for (let i = chosen.first; i <= chosen.last; i++) {
+    const m = marks[i];
+    if (m && m.family === chosen.family) {
+      choices.push({ marker: m.marker, text: m.rest, raws: [lines[i]] });
+    } else {
+      // 記号のない行は、直前の選択肢が次の行に続いたものとして扱う
+      const c = choices[choices.length - 1];
+      c.text = c.text ? `${c.text} ${lines[i]}` : lines[i];
+      c.raws.push(lines[i]);
+    }
+  }
+  const stemLines = lines.slice(0, chosen.first);
+  return { stemLines, stem: stemLines.join("\n"), choices, afterLines: lines.slice(chosen.last + 1), family: chosen.family };
+}
+
+/** 問題の種類をキーワードで推測する（AIの判断ではない） */
+function detectQuestionType(text) {
+  const parsed = parseQuestion(text);
+  const flat = normalize(String(text || ""));
+  const kanaKanji = (flat.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu) || []).length;
+  const letters = (flat.match(/[A-Za-z]/g) || []).length;
+
+  if (!flat.trim()) return "不明";
+  if (parsed.choices.length >= 2) {
+    return /正しい|誤っ|誤り|正誤|適切|選べ|選びなさい|記号/.test(flat) ? "選択問題（記号で答える）" : "選択問題";
+  }
+  if (/空欄|（\s*）|\(\s*\)|［\s*］|\[\s*\]|＿{2,}|_{2,}/.test(flat)) return "穴埋め問題";
+  if (/次の英文|英訳|和訳|下線部.*英|英語で|translate/i.test(flat) || (letters >= 20 && letters > kanaKanji * 1.5)) return "英語の問題";
+  if (/計算|求めなさい|求めよ|方程式|因数分解|証明|\d\s*[+\-×÷*/]\s*\d|[=＝]\s*\d|√|²|\bx\b/.test(flat)) return "計算・数式の問題";
+  if (/漢字|読み方|ひらがな|書きなさい|送り仮名/.test(flat)) return "漢字・語句の問題";
+  if (/説明しなさい|述べなさい|説明せよ|述べよ|記述|理由を|なぜ|\d+字以内/.test(flat)) return "記述問題";
+  if (/○か×|○×|正誤/.test(flat)) return "正誤問題";
+  return "不明";
+}
+
+/* ---------------- 読み取り結果の確認（要確認・確認済み） ---------------- */
+let ocrMeta = null;       // 直近のOCRの結果情報（手で入力したときは null）
+let uncertain = [];       // 要確認の行 { id, text, confidence, words, done, edited }
+let textConfirmed = false; // 本人が「この内容で合っています」を押したか
+
+function currentLines() {
+  return new Set(result.value.split("\n").map((l) => l.trim()).filter(Boolean));
+}
+
+/** 文章が直された行は「修正済み」にする */
+function syncUncertain() {
+  const lines = currentLines();
+  for (const u of uncertain) {
+    if (!u.done && !lines.has(u.text)) { u.done = true; u.edited = true; }
+  }
+}
+
+function activeUncertainTexts() {
+  return new Set(uncertain.filter((u) => !u.done).map((u) => u.text));
+}
+
+/** 行の中の自信が低い単語に <mark> を付けた要素を作る */
+function lineWithMarks(u) {
+  const p = el("p", "line");
+  let cursor = 0;
+  for (const w of u.words) {
+    const at = u.text.indexOf(w.text, cursor);
+    if (at < 0) continue;
+    if (at > cursor) p.append(u.text.slice(cursor, at));
+    p.append(el("mark", "", w.text));
+    cursor = at + w.text.length;
+  }
+  p.append(u.text.slice(cursor));
+  return p;
+}
+
+function selectLineInResult(text) {
+  const at = result.value.indexOf(text);
+  if (at < 0) return;
+  result.focus({ preventScroll: true });
+  result.setSelectionRange(at, at + text.length);
+  result.scrollIntoView({ block: "nearest" });
+}
+
+function renderReview() {
+  const box = $("review");
+  box.replaceChildren();
+  if (!ocrMeta) {
+    box.append(el("p", "review-note", "画像を読み取ると、自信のない箇所がここに「要確認」と表示されます。"));
+    return;
+  }
+  if (!ocrMeta.hasConfidence) {
+    box.append(el("p", "review-note", "今回の読み取りでは自信度の情報が得られませんでした。すべての行を、Classiの画面と見比べて確認してください。"));
+    return;
+  }
+  if (!uncertain.length) {
+    box.append(el("p", "review-note", "自信のない行は見つかりませんでした（自動判定です。念のため自分の目でも確認してください）。"));
+    return;
+  }
+  const open = uncertain.filter((u) => !u.done).length;
+  box.append(el("h3", "", `要確認 ${open}件（全${uncertain.length}件）`));
+  const list = el("ul", "review-list");
+  for (const u of uncertain) {
+    const li = el("li", "review-row" + (u.done ? " done" : ""));
+    li.dataset.id = u.id;
+    const head = el("p", "meta");
+    head.append(
+      el("span", `badge ${u.done ? "b-done" : "b-check"}`, u.done ? (u.edited ? "修正済み" : "確認済み") : "要確認"),
+      u.confidence === null ? "" : ` 自信度 ${u.confidence}%`,
+    );
+    li.append(head, lineWithMarks(u));
+    if (!u.done) {
+      const actions = el("div", "review-actions");
+      const pick = el("button", "secondary inline", "この行を選んで修正");
+      pick.type = "button";
+      pick.dataset.action = "select-line";
+      pick.addEventListener("click", () => selectLineInResult(u.text));
+      const ok = el("button", "secondary inline", "合っている");
+      ok.type = "button";
+      ok.dataset.action = "mark-ok";
+      ok.addEventListener("click", () => { u.done = true; u.edited = false; log(`「${short(u.text)}」を確認済みにした`); refreshReading(); });
+      actions.append(pick, ok);
+      li.append(actions);
+    }
+    list.append(li);
+  }
+  box.append(list);
+  if (open >= 3 && !ocrMeta.enhanced) {
+    box.append(el("p", "review-note", "要確認が多いときは、「① 画面を読み取る」で「画像を補正して読み取る」をオンにして、もう一度読み取ると良くなることがあります（今の修正内容は上書きされます）。"));
+  }
+}
+
+function updateConfirmUi() {
+  const state = $("confirm-state");
+  const has = !!result.value.trim();
+  const open = uncertain.filter((u) => !u.done).length;
+  state.classList.toggle("ok", textConfirmed);
+  state.textContent = textConfirmed
+    ? "✓ 確認済み（この内容で質問文を作れます）"
+    : has ? `未確認${open ? `（要確認が${open}件残っています）` : ""}` : "未確認";
+}
+
+/* ---------------- AI解説画面（AI接続前） ---------------- */
+function flaggedBadge() {
+  return el("span", "badge b-check", "要確認");
+}
+
+function renderExplain() {
+  const text = result.value.trim();
+  const qBody = $("ex-question-body");
+  const tBody = $("ex-type-body");
+  qBody.replaceChildren();
+  tBody.replaceChildren();
+
+  if (!text) {
+    qBody.append(el("p", "ex-pending", "まだ読み取った問題がありません。「① 画面を読み取る」で画像を読み取るか、②の欄に文章を入力してください。"));
+    tBody.append(el("p", "ex-pending", "問題を読み取ると表示されます。"));
+    return;
+  }
+
+  const parsed = parseQuestion(text);
+  const flagged = activeUncertainTexts();
+
+  qBody.append(el("p", "q-label", "問題文"));
+  if (parsed.stemLines.length) {
+    const stem = el("div", "q-stem");
+    for (const line of parsed.stemLines) {
+      const p = el("p", "q-line", line);
+      if (flagged.has(line)) p.append(" ", flaggedBadge());
+      stem.append(p);
+    }
+    qBody.append(stem);
+  } else {
+    qBody.append(el("p", "small", "問題文の部分は見つかりませんでした（最初の行から選択肢が始まっています）。"));
+  }
+
+  if (parsed.choices.length) {
+    qBody.append(el("p", "q-label", "選択肢（読み取った順番のまま）"));
+    const ul = el("ul", "q-choices");
+    for (const c of parsed.choices) {
+      const li = el("li");
+      li.append(el("span", "marker", c.marker), el("span", "text", c.text));
+      if (c.raws.some((r) => flagged.has(r))) li.append(flaggedBadge());
+      ul.append(li);
+    }
+    qBody.append(ul);
+  } else {
+    qBody.append(el("p", "small", "選択肢は見つかりませんでした（選択問題ではないか、記号が読み取れていません）。"));
+  }
+  if (parsed.afterLines.length) {
+    qBody.append(el("p", "q-label", "選択肢のあとの行"));
+    for (const line of parsed.afterLines) {
+      const p = el("p", "q-line", line);
+      if (flagged.has(line)) p.append(" ", flaggedBadge());
+      qBody.append(p);
+    }
+  }
+  qBody.append(el("p", "small", "文章の分け方は自動判定です。違っているときは、②の文章を直接修正してください。"));
+
+  const type = detectQuestionType(text);
+  tBody.append(
+    el("p", "q-type", type === "不明" ? "不明（キーワードから判定できませんでした）" : type),
+    el("p", "small", "キーワードによる推測です。AIが判断したものではありません。"),
+  );
+}
+
+/** 解説を頼むための質問文（本人が確認した内容から作る。送信はしない） */
+function buildExplainPrompt() {
+  const parsed = parseQuestion(result.value);
+  const flagged = activeUncertainTexts();
+  const mark = (line) => (flagged.has(line) ? `${line} 【要確認】` : line);
+  const stem = parsed.stemLines.length ? parsed.stemLines.map(mark).join("\n") : "（なし）";
+  const choices = parsed.choices.length
+    ? parsed.choices.map((c) => c.raws.map(mark).join(" ")).join("\n")
+    : "（なし）";
+  const after = parsed.afterLines.length ? `\n\n【選択肢のあとの行】\n${parsed.afterLines.map(mark).join("\n")}` : "";
+  return `あなたは学習支援の先生です。次の問題について、答えだけでなく、考え方が分かるように解説してください。
+
+【お願い】
+1. 読み取った問題（問題文と選択肢）を整理する
+2. 問題の種類を示す
+3. 問題の意味を、やさしく説明する
+4. 解き方・考え方を、順番に説明する
+5. 回答候補を示す
+6. 回答の理由を説明する
+7. 間違えやすいポイントを示す
+
+【注意】
+- 文字は画像から機械で読み取っています。【要確認】の行は読み取りに自信がないので、推測で進めず、確認が必要だと伝えてください
+- 選択肢の順番と記号は、元のまま扱ってください
+- 回答の提出や送信はしません。最後は私が自分で判断します
+
+【問題文】
+${stem}
+
+【選択肢】
+${choices}${after}`;
+}
+
+/** 画面に出ている読み取り・確認・解説まわりを、いまの文章に合わせて更新する */
+function refreshReading() {
+  syncUncertain();
+  renderReview();
+  renderExplain();
+  updateConfirmUi();
 }
 
 /* ---------------- OCRの画面操作 ---------------- */
@@ -1152,10 +1694,18 @@ read.addEventListener("click", async () => {
   log("画像の読み取りを開始");
 
   try {
-    const text = await recognizeImage(image.files[0], showProgress);
+    const enhance = $("enhance").checked;
+    const out = await recognizeDetailed(image.files[0], showProgress, { enhance });
+    const text = out.text;
     result.value = text;
+    ocrMeta = { hasConfidence: out.hasConfidence, enhanced: enhance };
+    uncertain = out.uncertain.map((u, i) => ({ id: i + 1, ...u, done: false, edited: false }));
+    textConfirmed = false;
+    refreshReading();
     status.textContent = "読み取り完了！";
     log(`画像の読み取り完了（${text.split(/\n/).filter((l) => l.trim()).length}行）`);
+    if (enhance) log("画像を補正して読み取りました");
+    if (uncertain.length) log(`読み取りに自信がない行：${uncertain.length}件（要確認）`);
   } catch (error) {
     showOcrError(error);
     log("画像の読み取りに失敗");
@@ -1237,6 +1787,69 @@ result.addEventListener("input", () => {
   }
 });
 result.addEventListener("change", () => { textEditedLogged = false; });
+result.addEventListener("input", () => {
+  textConfirmed = false;
+  refreshReading();
+});
+
+$("confirm-text").addEventListener("click", () => {
+  if (!result.value.trim()) {
+    $("confirm-state").classList.remove("ok");
+    $("confirm-state").textContent = "確認する文章がありません。先に画像を読み取るか、文章を入力してください";
+    return;
+  }
+  const open = uncertain.filter((u) => !u.done).length;
+  if (open && !confirm(`要確認の行が${open}件残っています。このまま「合っている」にしますか？`)) return;
+  textConfirmed = true;
+  log("読み取り結果を「合っている」と確認");
+  updateConfirmUi();
+});
+
+const explainPrompt = $("explain-prompt");
+const explainStatus = $("explain-status");
+$("copy-explain").addEventListener("click", async () => {
+  if (!result.value.trim()) {
+    explainStatus.textContent = "先に画像を読み取るか、文章を入力してください";
+    return;
+  }
+  if (!textConfirmed) {
+    explainStatus.textContent = "先に「② この内容で合っています」を押してください";
+    $("sec-result").scrollIntoView({ block: "start" });
+    return;
+  }
+  explainPrompt.value = buildExplainPrompt();
+  try {
+    await navigator.clipboard.writeText(explainPrompt.value);
+    explainStatus.textContent = "解説用の質問をコピーしました！（まだどこにも送信していません）";
+    log("解説用の質問をコピー");
+  } catch {
+    explainPrompt.focus();
+    explainPrompt.select();
+    explainStatus.textContent = "文章を選択しました。手動でコピーしてください";
+    log("解説用の質問を選択（手動コピー）");
+  }
+});
+
+$("clear-all").addEventListener("click", () => {
+  if (!confirm("画像・読み取り結果・整理したカード・質問文をすべて消去します。よろしいですか？")) return;
+  image.value = "";
+  result.value = "";
+  prompt.value = "";
+  explainPrompt.value = "";
+  explainStatus.textContent = "";
+  selftestResult.replaceChildren();
+  items = [];
+  editingId = null;
+  filter = "all";
+  ocrMeta = null;
+  uncertain = [];
+  textConfirmed = false;
+  status.classList.remove("error");
+  status.textContent = "消去しました";
+  render();
+  refreshReading();
+  log("画面の内容をすべて消去");
+});
 
 $("analyze").addEventListener("click", () => {
   const text = result.value.trim();
@@ -1297,11 +1910,21 @@ $("copy").addEventListener("click", async () => {
 
 render();
 renderHistory();
+refreshReading();
 
 // 動作確認用（外部送信はしない）
 window.__classiAssistant = {
   parseDue, extractItems, classifyKind, classifyCategory, sortItems,
-  ocr: { config: OCR, loadTesseract, judgeSelftest, cleanupOcrText },
+  parseQuestion, detectQuestionType, buildExplainPrompt,
+  ocr: { config: OCR, loadTesseract, judgeSelftest, cleanupOcrText, collectUncertain, enhanceImageData, confidence: OCR_CONF },
+  // 画面の確認用：OCRの結果を画面に反映する（read ボタンの処理と同じ）
+  showReading({ text, hasConfidence = true, uncertain: list = [], enhanced = false }) {
+    result.value = text;
+    ocrMeta = { hasConfidence, enhanced };
+    uncertain = list.map((u, i) => ({ id: i + 1, words: [], confidence: null, ...u, done: false, edited: false }));
+    textConfirmed = false;
+    refreshReading();
+  },
 };
 </script>
 
