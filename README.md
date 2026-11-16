@@ -63,4 +63,4 @@ Linux で必要なライブラリが足りないときは `npx playwright instal
 
 ### 自動テスト（GitHub Actions）
 
-`.github/workflows/test.yml` により、プルリクエストと push のたびに `npm test` が自動で実行されます。結果は GitHub の「Actions」タブで確認でき、テストレポート（画面のスクリーンショットつき）は `playwright-report` としてダウンロードできます。
+`.github/workflows/test.yml` により、プルリクエストの作成・更新時と main への push 時に `npm test` が自動で実行されます。Actions タブから手動でも実行できます。結果は GitHub の「Actions」タブで確認でき、テストレポート（画面のスクリーンショットつき）は `playwright-report` としてダウンロードできます。
