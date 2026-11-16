@@ -1,0 +1,17 @@
+{
+  "_note": "Classi の画面（iPad Air のスクリーンショット classi-q01.png）のOCR評価用の正解データ。選択肢の文法的な正誤は評価の対象外で、画面に表示されているとおりに記載している。",
+  "title": "練習問題_関係代名詞と前置詞01",
+  "instruction": "次の問いに答えなさい。",
+  "subNumber": "01",
+  "subInstruction": "次の英文を指示にしたがって書きかえるとき、（ ）に適するものを選びなさい。",
+  "english": "He is the man. I spoke to him yesterday.",
+  "direction": "（一つの文に）",
+  "rewrite": "He is the man (     ) yesterday.",
+  "choices": [
+    { "label": "ア", "text": "to I spoke whom" },
+    { "label": "イ", "text": "to I spoke" },
+    { "label": "ウ", "text": "whom I spoke to" },
+    { "label": "エ", "text": "I spoke to whom" }
+  ],
+  "excludedUi": ["12:40", "11月16日", "05:16", "答え合わせ", "メモ"]
+}
