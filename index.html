@@ -1,84 +1,257 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
 <title>Classi AI Assistant</title>
 
 <style>
+:root {
+  --bg: #f3f5fa;
+  --ink: #202536;
+  --muted: #687184;
+  --line: #ccd2df;
+  --brand: #263b70;
+  --accent: #315bd6;
+  --card: #ffffff;
+  --task-bg: #eef2ff;
+  --danger: #c62f3b;
+  --danger-bg: #fdecee;
+  --warn: #9a5b00;
+  --warn-bg: #fff4dd;
+  --ok: #1d7a4b;
+  --ok-bg: #e5f6ec;
+  --tap: 44px; /* Apple推奨の最小タップサイズ */
+}
+
 * { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  padding: 20px;
-  font-family: sans-serif;
-  background: #f3f5fa;
-  color: #202536;
+  /* iPadのセーフエリア（角丸・ホームインジケータ）を考慮 */
+  padding: max(20px, env(safe-area-inset-top))
+           max(20px, env(safe-area-inset-right))
+           max(20px, env(safe-area-inset-bottom))
+           max(20px, env(safe-area-inset-left));
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+               "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  background: var(--bg);
+  color: var(--ink);
 }
 
 .container {
-  max-width: 700px;
+  max-width: 1120px;
   margin: auto;
 }
 
 header {
-  background: #263b70;
+  background: var(--brand);
   color: white;
   padding: 22px;
   border-radius: 16px;
   margin-bottom: 20px;
 }
+header h1 { margin: 0 0 4px; font-size: 26px; }
+header p { margin: 0; opacity: .9; }
 
 .card {
-  background: white;
+  background: var(--card);
   padding: 18px;
   border-radius: 14px;
   margin-bottom: 15px;
+  min-width: 0;
+}
+.card h2 { margin: 0 0 10px; font-size: 20px; }
+
+/* iPad Air（縦 820px / 横 1180px）向けレイアウト */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 18px;
+}
+@media (min-width: 1000px) {
+  .layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+  }
 }
 
 button {
   width: 100%;
+  min-height: var(--tap);
   padding: 14px;
   margin-top: 12px;
   border: 0;
   border-radius: 10px;
-  background: #315bd6;
+  background: var(--accent);
   color: white;
   font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
 }
-
 button:disabled { opacity: .5; }
-
-textarea {
-  width: 100%;
-  min-height: 170px;
-  padding: 12px;
-  border: 1px solid #ccd2df;
-  border-radius: 10px;
-  font-size: 14px;
+button.secondary { background: #e4e9f5; color: var(--brand); }
+button.danger { background: var(--danger-bg); color: var(--danger); }
+button.inline {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 16px;
 }
 
-input { max-width: 100%; }
+textarea, input[type="text"], input[type="date"], input[type="time"], select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  /* 16px未満だとiPadで入力時に自動ズームされる */
+  font-size: 16px;
+  font-family: inherit;
+  background: white;
+  color: var(--ink);
+  min-height: var(--tap);
+}
+textarea { min-height: 170px; }
+
+input[type="file"] { max-width: 100%; font-size: 16px; min-height: var(--tap); }
+
+label.field { display: block; margin-top: 10px; font-size: 14px; color: var(--muted); }
+label.field > span { display: block; margin-bottom: 4px; }
 
 #status {
-  color: #315bd6;
+  color: var(--accent);
   margin-top: 10px;
 }
 
-.task {
-  background: #eef2ff;
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 8px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 .small {
-  color: #687184;
+  color: var(--muted);
   font-size: 12px;
 }
+
+/* ---------- 課題カード ---------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filters button {
+  width: auto;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #e4e9f5;
+  color: var(--brand);
+  font-size: 15px;
+}
+.filters button[aria-pressed="true"] { background: var(--brand); color: white; }
+.filters .count { opacity: .75; margin-left: 4px; font-size: 13px; }
+
+.summary { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+
+#tasks {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+@media (min-width: 700px) and (max-width: 999px) {
+  /* iPad縦向き：カードを2列 */
+  #tasks { grid-template-columns: 1fr 1fr; }
+}
+
+.task {
+  background: var(--task-bg);
+  padding: 14px;
+  border-radius: 12px;
+  border-left: 6px solid var(--accent);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.task.kind-notice { background: #f4f5f8; border-left-color: #7b8499; }
+.task.important { border-left-color: var(--danger); }
+.task.overdue { background: var(--danger-bg); }
+
+.task-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: white;
+  color: var(--brand);
+}
+.badge.b-task { background: var(--accent); color: white; }
+.badge.b-notice { background: #7b8499; color: white; }
+.badge.b-重要 { background: var(--danger); color: white; }
+.badge.b-行事・予定 { background: var(--ok-bg); color: var(--ok); }
+.badge.b-手続き { background: var(--warn-bg); color: var(--warn); }
+.badge.b-一般 { background: white; color: var(--muted); }
+.badge.b-edited { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 400; }
+
+.task-title { font-size: 17px; font-weight: 700; margin: 0 0 6px; white-space: pre-wrap; }
+.task-due { font-size: 15px; margin: 0; }
+.task-due .unknown { color: var(--warn); font-weight: 700; }
+.task-due .left { margin-left: 6px; font-size: 13px; color: var(--muted); }
+.task.overdue .task-due .left { color: var(--danger); font-weight: 700; }
+.task-memo { margin: 6px 0 0; font-size: 14px; white-space: pre-wrap; }
+.task-source { margin: 6px 0 0; font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+
+.task-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.task-actions button { flex: 1 1 auto; }
+
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.edit-grid .full { grid-column: 1 / -1; }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 10px; min-height: var(--tap); }
+.check input { width: 22px; height: 22px; }
+
+.empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  background: #f7f8fb;
+  border-radius: 12px;
+  grid-column: 1 / -1;
+}
+
+/* ---------- 操作履歴 ---------- */
+#history {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#history li {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #edf0f6;
+  font-size: 14px;
+}
+#history time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.history-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.history-head h2 { margin: 0; }
 </style>
 </head>
 
@@ -90,23 +263,44 @@ input { max-width: 100%; }
   <p>Classiの情報整理をAIがサポート</p>
 </header>
 
+<div class="layout">
+<div class="col-side">
+
 <div class="card">
   <h2>① 画面を読み取る</h2>
   <p>Classiのスクリーンショットを選択</p>
   <input type="file" id="image" accept="image/*">
   <button id="read">画像を読み取る</button>
-  <p id="status">待機中</p>
+  <p id="status" role="status" aria-live="polite">待機中</p>
+  <p class="small">画像の読み取りはこの端末のブラウザ内で行います。画像や読み取り結果を外部に送信することはありません。</p>
 </div>
 
 <div class="card">
   <h2>② 読み取った情報</h2>
   <textarea id="result"
-    placeholder="ここにOCR結果が表示されます"></textarea>
+    placeholder="ここにOCR結果が表示されます（手で直接修正できます）"></textarea>
 </div>
+
+<div class="card">
+  <div class="history-head">
+    <h2>操作履歴</h2>
+    <button id="clear-history" class="secondary inline">クリア</button>
+  </div>
+  <ul id="history" aria-live="polite"></ul>
+  <p class="small">履歴はこの画面を開いている間だけ保持され、保存・送信はされません。</p>
+</div>
+
+</div>
+<div class="col-main">
 
 <div class="card">
   <h2>③ 課題・期限の整理</h2>
   <button id="analyze">情報を整理する</button>
+  <div class="toolbar">
+    <div class="filters" id="filters" role="group" aria-label="表示の絞り込み"></div>
+    <button id="add-item" class="secondary inline">＋ 手動で追加</button>
+  </div>
+  <p class="summary" id="summary"></p>
   <div id="tasks"></div>
 </div>
 
@@ -122,79 +316,478 @@ input { max-width: 100%; }
 </div>
 
 </div>
+</div>
+
+</div>
 
 <script type="module">
-import { createWorker }
-from "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
+/*
+ * 安全方針
+ * - Classiの認証情報は扱わない（入力欄も保存処理もない）
+ * - Classiへのログイン・アクセス・提出・送信は一切行わない
+ * - 画像・読み取り結果・履歴を外部へ送信しない（OCRはブラウザ内で実行）
+ * - クリップボードへのコピーは利用者がボタンを押したときだけ
+ */
 
-const image = document.getElementById("image");
-const read = document.getElementById("read");
-const result = document.getElementById("result");
-const status = document.getElementById("status");
-const tasks = document.getElementById("tasks");
-const prompt = document.getElementById("prompt");
+const $ = (id) => document.getElementById(id);
+const image = $("image");
+const read = $("read");
+const result = $("result");
+const status = $("status");
+const tasks = $("tasks");
+const prompt = $("prompt");
+const filtersEl = $("filters");
+const summaryEl = $("summary");
+const historyEl = $("history");
 
-read.addEventListener("click", async () => {
-  if (!image.files.length) {
-    status.textContent = "画像を選択してください";
+/* ---------------- 状態 ---------------- */
+let items = [];          // 整理済みの課題・お知らせ
+let filter = "all";      // all | task | notice | important
+let editingId = null;
+let nextId = 1;
+const history = [];      // メモリ上のみ
+
+const KIND_LABEL = { task: "課題", notice: "お知らせ" };
+const CATEGORIES = ["重要", "行事・予定", "手続き", "一般"];
+
+/* ---------------- 操作履歴 ---------------- */
+function log(message) {
+  history.unshift({ at: new Date(), message });
+  if (history.length > 100) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  historyEl.replaceChildren();
+  if (!history.length) {
+    const li = document.createElement("li");
+    li.className = "small";
+    li.textContent = "まだ操作はありません";
+    historyEl.appendChild(li);
     return;
   }
-
-  read.disabled = true;
-  status.textContent = "文字を読み取っています...";
-
-  let worker;
-
-  try {
-    worker = await createWorker("jpn+eng");
-
-    const { data } = await worker.recognize(
-      image.files[0]
-    );
-
-    result.value = data.text;
-    status.textContent = "読み取り完了！";
-
-  } catch (error) {
-    status.textContent =
-      "読み取りエラー：" + error.message;
-  } finally {
-    if (worker) await worker.terminate();
-    read.disabled = false;
+  for (const h of history) {
+    const li = document.createElement("li");
+    const t = document.createElement("time");
+    t.dateTime = h.at.toISOString();
+    t.textContent = h.at.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const span = document.createElement("span");
+    span.textContent = h.message;
+    li.append(t, span);
+    historyEl.appendChild(li);
   }
+}
+
+$("clear-history").addEventListener("click", () => {
+  history.length = 0;
+  renderHistory();
 });
 
-document.getElementById("analyze")
-.addEventListener("click", () => {
-  const text = result.value.trim();
+/* ---------------- 日付の解析 ---------------- */
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
-  if (!text) {
-    tasks.textContent = "先に画像を読み取ってください";
-    return;
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function toISODate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function validDate(y, m, d) {
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d ? dt : null;
+}
+
+/** 全角数字・記号を半角に揃える */
+function normalize(text) {
+  return text
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[／]/g, "/")
+    .replace(/[：]/g, ":")
+    .replace(/[－ー―]/g, (c, i, s) => (/\d/.test(s[i - 1] || "") && /\d/.test(s[i + 1] || "") ? "-" : c));
+}
+
+/**
+ * 行から日付（と時刻）を取り出す。見つからなければ null。
+ * 対応: 2026年11月20日 / 2026/11/20 / 2026-11-20 / 11月20日 / 11/20 / 「明日まで」など
+ */
+function parseDue(line) {
+  const s = normalize(line);
+  let date = null;
+  let m;
+
+  if ((m = s.match(/(\d{4})\s*[年/.\-]\s*(\d{1,2})\s*[月/.\-]\s*(\d{1,2})\s*日?/))) {
+    date = validDate(+m[1], +m[2], +m[3]);
+  } else if ((m = s.match(/(?<![\d/])(\d{1,2})\s*(?:月\s*(\d{1,2})\s*日|\/\s*(\d{1,2}))(?![\d/])/))) {
+    const month = +m[1];
+    const day = +(m[2] || m[3]);
+    const today = startOfToday();
+    let y = today.getFullYear();
+    date = validDate(y, month, day);
+    // 年の記載がない日付が半年以上前なら翌年とみなす
+    if (date && today - date > 1000 * 60 * 60 * 24 * 180) date = validDate(y + 1, month, day);
+  } else if (/提出期限|締切|締め切り|〆切|期限|まで/.test(s) &&
+             (m = s.match(/明後日|あさって|明日|あした|今日|本日/))) {
+    // 「明日」などは期限を表す言葉と一緒のときだけ期限として扱う（推測しない）
+    const offset = /明後日|あさって/.test(m[0]) ? 2 : /明日|あした/.test(m[0]) ? 1 : 0;
+    date = startOfToday();
+    date.setDate(date.getDate() + offset);
+  }
+  if (!date) return null;
+
+  const t = s.match(/(\d{1,2}):(\d{2})/);
+  const time = t && +t[1] < 24 && +t[2] < 60 ? `${pad(+t[1])}:${t[2]}` : "";
+  return { date: toISODate(date), time };
+}
+
+/* ---------------- 分類 ---------------- */
+const TASK_WORDS = /課題|宿題|提出物|レポート|プリント|ワーク|小テスト|ドリル|問題集|ノート提出|作文|感想文|学習記録/;
+const NOTICE_WORDS = /お知らせ|連絡|案内|通知|配信|掲示|お願い|保護者/;
+const DUE_WORDS = /提出期限|締切|締め切り|〆切|期限|まで/;
+
+function classifyKind(text) {
+  if (TASK_WORDS.test(text)) return "task";
+  if (/提出/.test(text) && !NOTICE_WORDS.test(text)) return "task";
+  return "notice";
+}
+
+/** お知らせのカテゴリを判定する（課題にも重要度判定のため適用） */
+function classifyCategory(text) {
+  if (/重要|緊急|至急|必ず|必須|厳守|変更|中止|延期|休校|休講|臨時|警報|注意|要確認|【重要】/.test(text)) return "重要";
+  if (/行事|説明会|面談|保護者会|懇談|遠足|修学旅行|体育祭|運動会|文化祭|合唱|試験|考査|テスト|模試|検定|始業式|終業式|式典|集会/.test(text)) return "行事・予定";
+  if (/提出|申込|申し込み|締切|期限|アンケート|書類|同意書|届|回答|集金|振込|手続/.test(text)) return "手続き";
+  return "一般";
+}
+
+/** 日付だけ・期限だけを表す行か（前の項目に結び付ける） */
+function isDueOnlyLine(line) {
+  const rest = normalize(line)
+    .replace(/\d{4}\s*[年/.\-]\s*\d{1,2}\s*[月/.\-]\s*\d{1,2}\s*日?/g, "")
+    .replace(/\d{1,2}\s*(月\s*\d{1,2}\s*日|\/\s*\d{1,2})/g, "")
+    .replace(/\d{1,2}:\d{2}/g, "")
+    .replace(/[（(][月火水木金土日][)）]/g, "")
+    .replace(/提出期限|締切|締め切り|〆切|期限|まで|日時|期日|今日|本日|明日|明後日|[\s:・\-~〜]/g, "");
+  return rest.length <= 2;
+}
+
+function makeItem(title, source) {
+  const due = parseDue(title);
+  return {
+    id: nextId++,
+    title,
+    kind: classifyKind(title),
+    category: classifyCategory(title),
+    due: due ? due.date : "",
+    time: due ? due.time : "",
+    memo: "",
+    source,
+    edited: false,
+  };
+}
+
+/** OCRテキストを課題・お知らせの一覧に変換する */
+function extractItems(text) {
+  const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  const keyword = new RegExp(`${TASK_WORDS.source}|${NOTICE_WORDS.source}|${DUE_WORDS.source}|提出|重要|緊急`);
+
+  for (const line of lines) {
+    const due = parseDue(line);
+    const prev = out[out.length - 1];
+
+    // 「期限：11/20」のような行は直前の項目の期限として扱う
+    if (due && prev && !prev.due && isDueOnlyLine(line)) {
+      prev.due = due.date;
+      prev.time = due.time;
+      prev.source += "\n" + line;
+      if (prev.kind === "notice" && DUE_WORDS.test(line)) prev.kind = "task";
+      continue;
+    }
+    if (due || keyword.test(line)) {
+      out.push(makeItem(line, line));
+    }
   }
 
-  tasks.replaceChildren();
+  // 該当する行がなければ、従来どおり全行をカードにする
+  if (!out.length) return lines.map((l) => makeItem(l, l));
+  return out;
+}
 
-  const lines = text.split(/\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
+/* ---------------- 並べ替え ---------------- */
+function sortItems(list) {
+  return [...list].sort((a, b) => {
+    // 期限ありを日付順に先頭、期限不明は最後
+    if (a.due && !b.due) return -1;
+    if (!a.due && b.due) return 1;
+    if (a.due && b.due) {
+      const k = (a.due + (a.time || "99:99")).localeCompare(b.due + (b.time || "99:99"));
+      if (k) return k;
+    }
+    // 同じ期限なら重要なものを先に
+    const ia = a.category === "重要" ? 0 : 1;
+    const ib = b.category === "重要" ? 0 : 1;
+    return ia - ib || a.id - b.id;
+  });
+}
 
-  const datePattern =
-    /\d{4}[年/.-]\d{1,2}[月/.-]\d{1,2}日?/;
+function daysLeft(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Math.round((new Date(y, m - 1, d) - startOfToday()) / 86400000);
+}
 
-  const found = lines.filter(line =>
-    datePattern.test(line) ||
-    /提出|課題|宿題|期限|締切|お知らせ/.test(line)
+function formatDue(item) {
+  const [y, m, d] = item.due.split("-").map(Number);
+  const w = "日月火水木金土"[new Date(y, m - 1, d).getDay()];
+  return `${y}年${m}月${d}日（${w}）${item.time ? " " + item.time : ""}`;
+}
+
+/* ---------------- 描画 ---------------- */
+function matchesFilter(item) {
+  if (filter === "task") return item.kind === "task";
+  if (filter === "notice") return item.kind === "notice";
+  if (filter === "important") return item.category === "重要";
+  return true;
+}
+
+function renderFilters() {
+  const defs = [
+    ["all", "すべて", items.length],
+    ["task", "課題", items.filter((i) => i.kind === "task").length],
+    ["notice", "お知らせ", items.filter((i) => i.kind === "notice").length],
+    ["important", "重要", items.filter((i) => i.category === "重要").length],
+  ];
+  filtersEl.replaceChildren();
+  for (const [key, label, count] of defs) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.filter = key;
+    b.setAttribute("aria-pressed", String(filter === key));
+    b.textContent = label;
+    const c = document.createElement("span");
+    c.className = "count";
+    c.textContent = count;
+    b.appendChild(c);
+    b.addEventListener("click", () => {
+      filter = key;
+      log(`表示を「${label}」に切り替え`);
+      render();
+    });
+    filtersEl.appendChild(b);
+  }
+}
+
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function renderCard(item) {
+  const card = el("article", "task");
+  card.dataset.id = item.id;
+  card.classList.add(`kind-${item.kind}`);
+  if (item.category === "重要") card.classList.add("important");
+  const left = item.due ? daysLeft(item.due) : null;
+  if (left !== null && left < 0) card.classList.add("overdue");
+
+  const head = el("div", "task-head");
+  head.append(
+    el("span", `badge b-${item.kind}`, KIND_LABEL[item.kind]),
+    el("span", `badge b-${item.category}`, item.category),
+  );
+  if (item.edited) head.append(el("span", "badge b-edited", "修正済み"));
+
+  const title = el("p", "task-title", item.title);
+
+  const due = el("p", "task-due");
+  due.append("期限：");
+  if (item.due) {
+    due.append(el("span", "date", formatDue(item)));
+    const label = left < 0 ? `${-left}日超過` : left === 0 ? "今日まで" : `あと${left}日`;
+    due.append(el("span", "left", `（${label}）`));
+  } else {
+    due.append(el("span", "unknown", "不明"));
+  }
+
+  card.append(head, title, due);
+  if (item.memo) card.append(el("p", "task-memo", "メモ：" + item.memo));
+  if (item.source && item.source !== item.title) card.append(el("p", "task-source", "読み取り元：" + item.source));
+
+  const actions = el("div", "task-actions");
+  const edit = el("button", "secondary inline", "修正");
+  edit.type = "button";
+  edit.dataset.action = "edit";
+  edit.addEventListener("click", () => {
+    editingId = item.id;
+    render();
+  });
+  actions.append(edit);
+  card.append(actions);
+  return card;
+}
+
+function field(labelText, input, full) {
+  const label = el("label", "field" + (full ? " full" : ""));
+  label.append(el("span", "", labelText), input);
+  return label;
+}
+
+function renderEditor(item) {
+  const card = el("article", "task editing");
+  card.dataset.id = item.id;
+
+  const title = document.createElement("textarea");
+  title.name = "title";
+  title.style.minHeight = "80px";
+  title.value = item.title;
+
+  const kind = document.createElement("select");
+  kind.name = "kind";
+  for (const [v, l] of Object.entries(KIND_LABEL)) kind.append(new Option(l, v, false, item.kind === v));
+
+  const category = document.createElement("select");
+  category.name = "category";
+  for (const c of CATEGORIES) category.append(new Option(c, c, false, item.category === c));
+
+  const date = document.createElement("input");
+  date.type = "date";
+  date.name = "due";
+  date.value = item.due;
+
+  const time = document.createElement("input");
+  time.type = "time";
+  time.name = "time";
+  time.value = item.time;
+
+  const unknownWrap = el("label", "check full");
+  const unknown = document.createElement("input");
+  unknown.type = "checkbox";
+  unknown.name = "unknown";
+  unknown.checked = !item.due;
+  unknownWrap.append(unknown, "期限は不明");
+  // 「不明」にチェックすると日付を消し、日付を入れるとチェックを外す
+  unknown.addEventListener("change", () => { if (unknown.checked) { date.value = ""; time.value = ""; } });
+  date.addEventListener("input", () => { unknown.checked = !date.value; });
+  date.addEventListener("change", () => { unknown.checked = !date.value; });
+
+  const memo = document.createElement("input");
+  memo.type = "text";
+  memo.name = "memo";
+  memo.value = item.memo;
+  memo.placeholder = "自分用のメモ（任意）";
+
+  const grid = el("div", "edit-grid");
+  grid.append(
+    field("内容", title, true),
+    field("種類", kind),
+    field("分類", category),
+    field("期限日", date),
+    field("時刻（任意）", time),
+    unknownWrap,
+    field("メモ", memo, true),
   );
 
-  const list = found.length ? found : lines;
+  const actions = el("div", "task-actions");
+  const save = el("button", "inline", "保存");
+  save.type = "button";
+  save.dataset.action = "save";
+  const cancel = el("button", "secondary inline", "キャンセル");
+  cancel.type = "button";
+  const del = el("button", "danger inline", "削除");
+  del.type = "button";
+  del.dataset.action = "delete";
 
-  list.forEach(line => {
-    const item = document.createElement("div");
-    item.className = "task";
-    item.textContent = line;
-    tasks.appendChild(item);
+  save.addEventListener("click", () => {
+    const newTitle = title.value.trim();
+    if (!newTitle) {
+      status.textContent = "内容を入力してください";
+      title.focus();
+      return;
+    }
+    delete item.isNew;
+    const before = JSON.stringify([item.title, item.kind, item.category, item.due, item.time, item.memo]);
+    item.title = newTitle;
+    item.kind = kind.value;
+    item.category = category.value;
+    item.due = unknown.checked ? "" : date.value;
+    item.time = unknown.checked || !date.value ? "" : time.value;
+    item.memo = memo.value.trim();
+    const after = JSON.stringify([item.title, item.kind, item.category, item.due, item.time, item.memo]);
+    editingId = null;
+    if (before !== after) {
+      item.edited = true;
+      log(`「${short(item.title)}」を修正`);
+    }
+    render();
+    updatePrompt();
   });
+  cancel.addEventListener("click", () => {
+    // 手動追加して未保存のまま取り消した空の項目は消す
+    if (item.isNew) items = items.filter((i) => i !== item);
+    else delete item.isNew;
+    editingId = null;
+    render();
+  });
+  del.addEventListener("click", () => {
+    if (!confirm("このカードを削除しますか？")) return;
+    items = items.filter((i) => i !== item);
+    editingId = null;
+    log(`「${short(item.title)}」を削除`);
+    render();
+    updatePrompt();
+  });
+
+  actions.append(save, cancel, del);
+  card.append(grid, actions);
+  return card;
+}
+
+function render() {
+  renderFilters();
+  tasks.replaceChildren();
+  const visible = sortItems(items).filter((i) => matchesFilter(i) || i.id === editingId);
+
+  if (!items.length) {
+    summaryEl.textContent = "";
+  } else {
+    const unknown = items.filter((i) => !i.due).length;
+    const overdue = items.filter((i) => i.due && daysLeft(i.due) < 0).length;
+    summaryEl.textContent =
+      `${items.length}件（期限順に表示）・期限不明 ${unknown}件` + (overdue ? `・期限超過 ${overdue}件` : "");
+  }
+
+  if (!visible.length) {
+    tasks.append(el("div", "empty", items.length ? "この分類に該当するものはありません" : "「情報を整理する」を押すと、ここにカードが表示されます"));
+    return;
+  }
+  for (const item of visible) {
+    tasks.append(item.id === editingId ? renderEditor(item) : renderCard(item));
+  }
+  const editor = tasks.querySelector(".editing textarea");
+  if (editor && document.activeElement?.closest?.(".editing") == null) editor.focus({ preventScroll: true });
+}
+
+function short(s) {
+  const one = s.replace(/\s+/g, " ");
+  return one.length > 20 ? one.slice(0, 20) + "…" : one;
+}
+
+/* ---------------- AIへの質問文 ---------------- */
+function updatePrompt() {
+  const text = result.value.trim();
+  if (!text && !items.length) {
+    prompt.value = "";
+    return;
+  }
+  const list = sortItems(items).map((i, n) => {
+    const due = i.due ? formatDue(i) : "不明";
+    const memo = i.memo ? ` / メモ：${i.memo}` : "";
+    return `${n + 1}. [${KIND_LABEL[i.kind]}・${i.category}] ${i.title.replace(/\s+/g, " ")} / 期限：${due}${memo}`;
+  }).join("\n");
 
   prompt.value =
 `あなたはClassiの学習支援アシスタントです。
@@ -206,18 +799,109 @@ document.getElementById("analyze")
 2. 提出期限を整理する
 3. 重要なお知らせを要約する
 4. 次にやるべきことを優先順位順に提案する
-5. 読み取れない情報は推測しない
+5. 読み取れない情報は推測しない（期限が「不明」のものは不明のまま扱う）
 
 提出や送信などの操作は勝手に実行せず、
 本人が確認できるようにしてください。
 
+【整理済みの一覧（本人が確認・修正済み）】
+${list || "（なし）"}
+
 【Classiの画面情報】
 ${text}`;
+}
 
+/* ---------------- 操作 ---------------- */
+read.addEventListener("click", async () => {
+  if (!image.files.length) {
+    status.textContent = "画像を選択してください";
+    return;
+  }
+
+  read.disabled = true;
+  status.textContent = "文字を読み取っています...";
+  log("画像の読み取りを開始");
+
+  let worker;
+
+  try {
+    // OCRライブラリは利用時に読み込む（読み込めなくても他の機能は使える）
+    const { createWorker } = await import(
+      "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js"
+    );
+    worker = await createWorker("jpn+eng");
+
+    const { data } = await worker.recognize(
+      image.files[0]
+    );
+
+    result.value = data.text;
+    status.textContent = "読み取り完了！";
+    log(`画像の読み取り完了（${data.text.split(/\n/).filter((l) => l.trim()).length}行）`);
+
+  } catch (error) {
+    status.textContent =
+      "読み取りエラー：" + error.message;
+    log("画像の読み取りに失敗");
+  } finally {
+    if (worker) await worker.terminate();
+    read.disabled = false;
+  }
 });
 
-document.getElementById("copy")
-.addEventListener("click", async () => {
+image.addEventListener("change", () => {
+  if (image.files.length) log("画像を選択");
+});
+
+let textEditedLogged = false;
+result.addEventListener("input", () => {
+  if (!textEditedLogged) {
+    log("読み取り結果のテキストを修正");
+    textEditedLogged = true;
+  }
+});
+result.addEventListener("change", () => { textEditedLogged = false; });
+
+$("analyze").addEventListener("click", () => {
+  const text = result.value.trim();
+
+  if (!text) {
+    items = [];
+    editingId = null;
+    render();
+    summaryEl.textContent = "先に画像を読み取ってください";
+    return;
+  }
+
+  if (items.some((i) => i.edited) &&
+      !confirm("カードの修正内容は破棄され、読み取り結果から作り直されます。よろしいですか？")) {
+    return;
+  }
+
+  items = extractItems(text);
+  editingId = null;
+  filter = "all";
+  render();
+  updatePrompt();
+  const t = items.filter((i) => i.kind === "task").length;
+  const imp = items.filter((i) => i.category === "重要").length;
+  log(`情報を整理（課題${t}件・お知らせ${items.length - t}件・重要${imp}件）`);
+});
+
+$("add-item").addEventListener("click", () => {
+  const item = makeItem("", "");
+  item.kind = "task";
+  item.category = "一般";
+  item.isNew = true;
+  item.edited = true;
+  items.push(item);
+  editingId = item.id;
+  filter = "all";
+  log("カードを手動で追加");
+  render();
+});
+
+$("copy").addEventListener("click", async () => {
   if (!prompt.value) {
     status.textContent = "先に情報を整理してください";
     return;
@@ -226,12 +910,20 @@ document.getElementById("copy")
   try {
     await navigator.clipboard.writeText(prompt.value);
     status.textContent = "AIへの質問をコピーしました！";
+    log("AIへの質問をコピー");
   } catch {
     prompt.focus();
     prompt.select();
     status.textContent = "文章を選択しました。手動でコピーしてください";
+    log("AIへの質問を選択（手動コピー）");
   }
 });
+
+render();
+renderHistory();
+
+// 動作確認用（外部送信はしない）
+window.__classiAssistant = { parseDue, extractItems, classifyKind, classifyCategory, sortItems };
 </script>
 
 </body>
