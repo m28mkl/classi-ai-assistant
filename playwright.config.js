@@ -31,6 +31,18 @@ module.exports = defineConfig({
       testMatch: /e2e\.spec\.js/,
       use: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
     },
+    {
+      // OCRの読み込み・エラー処理・実際の文字認識（iPad Air 縦向き、Chromium）
+      name: "ocr",
+      testMatch: /ocr\.spec\.js/,
+      use: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+    },
+    // Safari と同じエンジン（WebKit）での OCR テスト。WebKit をインストールした環境で OCR_WEBKIT=1 を指定して実行
+    ...(process.env.OCR_WEBKIT ? [{
+      name: "ocr-webkit",
+      testMatch: /ocr\.spec\.js/,
+      use: { browserName: "webkit", viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
+    }] : []),
   ],
   webServer: {
     command: "node tests/server.js",

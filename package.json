@@ -7,10 +7,16 @@
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=ipad-air-portrait --project=ipad-air-landscape",
+    "test:ocr": "playwright test --project=ocr",
+    "test:ocr:online": "OCR_ONLINE=1 playwright test --project=ocr",
     "check:syntax": "node tests/check-syntax.js",
     "serve": "node tests/server.js"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/jpn": "1.0.0",
+    "tesseract.js": "5.1.1",
+    "tesseract.js-core": "5.1.1"
   }
 }
