@@ -19,6 +19,8 @@ module.exports = defineConfig({
   projects: [
     { name: "syntax", testMatch: /syntax\.spec\.js/ },
     { name: "unit", testMatch: /unit\.spec\.js/ },
+    // AI解説サーバー（偽のOpenAIサーバーを使うので、ブラウザは使わない）
+    { name: "ai-server", testMatch: /ai-server\.spec\.js/ },
     {
       // iPad Air（第5世代以降）縦向き
       name: "ipad-air-portrait",
