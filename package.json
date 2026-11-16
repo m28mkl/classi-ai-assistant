@@ -1,0 +1,16 @@
+{
+  "name": "classi-ai-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Classiのスクリーンショットから課題・期限を整理し、AIへの質問文を作るブラウザアプリ",
+  "scripts": {
+    "test": "playwright test",
+    "test:unit": "playwright test --project=unit",
+    "test:e2e": "playwright test --project=ipad-air-portrait --project=ipad-air-landscape",
+    "check:syntax": "node tests/check-syntax.js",
+    "serve": "node tests/server.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

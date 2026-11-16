@@ -32,3 +32,35 @@ AIに相談するときは、作った質問文を利用者が自分でコピー
 ## 外部との通信
 
 OCRライブラリ [tesseract.js](https://github.com/naptha/tesseract.js) と日本語の読み取り用データを、読み取りボタンを押したときにCDNから取得します。画像や読み取った文字はどこにも送信しません。
+
+## テスト
+
+[Playwright](https://playwright.dev/) で、次のテストを実行します（合計90件）。
+
+| ファイル | 内容 | 件数 |
+|---|---|---|
+| `tests/syntax.spec.js` | `index.html` の JavaScript の構文チェック | 1 |
+| `tests/unit.spec.js` | 日付解析20件、課題・お知らせの分類20件、カードの作り方5件、期限順ソート2件 | 47 |
+| `tests/e2e.spec.js` | iPad Air 縦（820×1180）・横（1180×820）での画面テスト：既存機能、カード表示、期限順、期限不明、分類と絞り込み、カードの追加・編集・削除、操作履歴、安全性、レイアウト | 21 × 2 |
+
+テストでは「今日」を 2026-11-16 10:00（日本時間）に固定し、OCRライブラリはテスト用のものに差し替えます（実際の文字認識の精度はテストしていません）。画面テストはすべて、JavaScriptエラーがないことと、外部への通信がOCRライブラリの取得だけであることも確認します。
+
+### 実行方法
+
+Node.js（22で動作確認済み）が必要です。
+
+```bash
+npm ci                                  # 依存パッケージのインストール
+npx playwright install chromium         # 初回のみ：テスト用ブラウザのインストール
+npm test                                # すべてのテスト
+npm run test:unit                       # 単体テストだけ
+npm run test:e2e                        # iPad Air の画面テストだけ
+npm run check:syntax                    # JavaScript の構文チェックだけ
+```
+
+Linux で必要なライブラリが足りないときは `npx playwright install --with-deps chromium` を使ってください。
+アプリを手元のブラウザで確認するときは `npm run serve` を実行し、`http://127.0.0.1:8765/` を開きます。
+
+### 自動テスト（GitHub Actions）
+
+`.github/workflows/test.yml` により、プルリクエストと push のたびに `npm test` が自動で実行されます。結果は GitHub の「Actions」タブで確認でき、テストレポート（画面のスクリーンショットつき）は `playwright-report` としてダウンロードできます。

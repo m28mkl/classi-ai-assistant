@@ -1,0 +1,39 @@
+name: テスト
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存パッケージのインストール
+        run: npm ci
+
+      - name: Playwright のブラウザ（Chromium）をインストール
+        run: npx playwright install --with-deps chromium
+
+      - name: テスト（構文チェック・単体テスト47件・iPad Air画面テスト）
+        run: npm test
+
+      - name: テストレポートを保存
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
