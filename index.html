@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classi AI Assistant</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: sans-serif;
+  background: #f3f5fa;
+  color: #202536;
+}
+
+.container {
+  max-width: 700px;
+  margin: auto;
+}
+
+header {
+  background: #263b70;
+  color: white;
+  padding: 22px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  margin-bottom: 15px;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #315bd6;
+  color: white;
+  font-size: 16px;
+}
+
+button:disabled { opacity: .5; }
+
+textarea {
+  width: 100%;
+  min-height: 170px;
+  padding: 12px;
+  border: 1px solid #ccd2df;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+input { max-width: 100%; }
+
+#status {
+  color: #315bd6;
+  margin-top: 10px;
+}
+
+.task {
+  background: #eef2ff;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.small {
+  color: #687184;
+  font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+  <h1>Classi AI Assistant</h1>
+  <p>Classiの情報整理をAIがサポート</p>
+</header>
+
+<div class="card">
+  <h2>① 画面を読み取る</h2>
+  <p>Classiのスクリーンショットを選択</p>
+  <input type="file" id="image" accept="image/*">
+  <button id="read">画像を読み取る</button>
+  <p id="status">待機中</p>
+</div>
+
+<div class="card">
+  <h2>② 読み取った情報</h2>
+  <textarea id="result"
+    placeholder="ここにOCR結果が表示されます"></textarea>
+</div>
+
+<div class="card">
+  <h2>③ 課題・期限の整理</h2>
+  <button id="analyze">情報を整理する</button>
+  <div id="tasks"></div>
+</div>
+
+<div class="card">
+  <h2>④ AIに相談する</h2>
+  <textarea id="prompt" readonly
+    placeholder="整理した内容からAIへの質問を作ります"></textarea>
+  <button id="copy">AIへの質問をコピー</button>
+  <p class="small">
+    コピーした文章をClaudeに貼り付けてください。
+    個人情報は先に隠してください。
+  </p>
+</div>
+
+</div>
+
+<script type="module">
+import { createWorker }
+from "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
+
+const image = document.getElementById("image");
+const read = document.getElementById("read");
+const result = document.getElementById("result");
+const status = document.getElementById("status");
+const tasks = document.getElementById("tasks");
+const prompt = document.getElementById("prompt");
+
+read.addEventListener("click", async () => {
+  if (!image.files.length) {
+    status.textContent = "画像を選択してください";
+    return;
+  }
+
+  read.disabled = true;
+  status.textContent = "文字を読み取っています...";
+
+  let worker;
+
+  try {
+    worker = await createWorker("jpn+eng");
+
+    const { data } = await worker.recognize(
+      image.files[0]
+    );
+
+    result.value = data.text;
+    status.textContent = "読み取り完了！";
+
+  } catch (error) {
+    status.textContent =
+      "読み取りエラー：" + error.message;
+  } finally {
+    if (worker) await worker.terminate();
+    read.disabled = false;
+  }
+});
+
+document.getElementById("analyze")
+.addEventListener("click", () => {
+  const text = result.value.trim();
+
+  if (!text) {
+    tasks.textContent = "先に画像を読み取ってください";
+    return;
+  }
+
+  tasks.replaceChildren();
+
+  const lines = text.split(/\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const datePattern =
+    /\d{4}[年/.-]\d{1,2}[月/.-]\d{1,2}日?/;
+
+  const found = lines.filter(line =>
+    datePattern.test(line) ||
+    /提出|課題|宿題|期限|締切|お知らせ/.test(line)
+  );
+
+  const list = found.length ? found : lines;
+
+  list.forEach(line => {
+    const item = document.createElement("div");
+    item.className = "task";
+    item.textContent = line;
+    tasks.appendChild(item);
+  });
+
+  prompt.value =
+`あなたはClassiの学習支援アシスタントです。
+
+以下の画面情報を整理してください。
+
+【お願い】
+1. 課題を一覧にする
+2. 提出期限を整理する
+3. 重要なお知らせを要約する
+4. 次にやるべきことを優先順位順に提案する
+5. 読み取れない情報は推測しない
+
+提出や送信などの操作は勝手に実行せず、
+本人が確認できるようにしてください。
+
+【Classiの画面情報】
+${text}`;
+
+});
+
+document.getElementById("copy")
+.addEventListener("click", async () => {
+  if (!prompt.value) {
+    status.textContent = "先に情報を整理してください";
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(prompt.value);
+    status.textContent = "AIへの質問をコピーしました！";
+  } catch {
+    prompt.focus();
+    prompt.select();
+    status.textContent = "文章を選択しました。手動でコピーしてください";
+  }
+});
+</script>
+
+</body>
+</html>
