@@ -24,11 +24,14 @@ jobs:
       - name: 依存パッケージのインストール
         run: npm ci
 
-      - name: Playwright のブラウザ（Chromium）をインストール
-        run: npx playwright install --with-deps chromium
+      - name: Playwright のブラウザ（Chromium・WebKit）をインストール
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: テスト（構文チェック・単体テスト47件・iPad Air画面テスト）
+      - name: テスト（構文・単体・iPad Air画面・OCR。WebKit と CDN上の本物での確認を含む）
         run: npm test
+        env:
+          OCR_WEBKIT: "1"
+          OCR_ONLINE: "1"
 
       - name: テストレポートを保存
         if: ${{ !cancelled() }}

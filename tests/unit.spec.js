@@ -1,4 +1,4 @@
-// 日付解析・分類・行のまとめ方・並び替えの単体テスト（47件）
+// 日付解析・分類・行のまとめ方・並び替え（47件）と、OCR結果の整形・動作チェックの判定の単体テスト
 // index.html が公開している window.__classiAssistant の関数をブラウザ内で直接呼び出す。
 // 「今日」は 2026-11-16 10:00（日本時間）に固定する。
 const { test, expect } = require("@playwright/test");
@@ -124,5 +124,56 @@ test.describe("期限順ソート sortItems", () => {
 
   test("空の一覧でもエラーにならない", async () => {
     expect(await call("sortItems", [])).toEqual([]);
+  });
+});
+
+/* ---------- OCR結果の整形 cleanupOcrText ---------- */
+test.describe("OCR結果の整形 cleanupOcrText", () => {
+  const clean = (text) => page.evaluate((t) => window.__classiAssistant.ocr.cleanupOcrText(t), text);
+
+  test("OCR特有の「1文字ずつ空白が入った行」は日本語の空白を取り除く", async () => {
+    expect(await clean("【 重 要 】 保 護 者 会 の お 知ら せ")).toBe("【重要】保護者会のお知らせ");
+    expect(await clean("お 知ら せ ・ 課 題 一 覧")).toBe("お知らせ・課題一覧");
+  });
+
+  test("元からある単語の区切り（空白が少ない行）は残す", async () => {
+    expect(await clean("数学 課題プリント3")).toBe("数学 課題プリント3");
+    expect(await clean("英語 宿題 ワーク p.10-15")).toBe("英語 宿題 ワーク p.10-15");
+  });
+
+  test("数字と年・月・日の間の空白を取り除き、日付として読めるようにする", async () => {
+    const text = await clean("提出 期限 : 2026 年 11 月 20 日 17:00");
+    expect(text).toBe("提出 期限 : 2026年11月20日 17:00");
+    expect(await call("parseDue", text)).toEqual({ date: "2026-11-20", time: "17:00" });
+  });
+
+  test("英単語の空白と改行は残し、3行以上の空行は1行にまとめる", async () => {
+    expect(await clean("English Homework p.10\r\n\n\n\n数学 課題")).toBe("English Homework p.10\n\n数学 課題");
+  });
+
+  test("実際のOCR結果を整形すると、課題と期限が正しく分類される", async () => {
+    const raw = "お 知ら せ ・ 課 題 一 覧\n\n数 学 課題 プリ ント 3\n\n提出 期限 : 2026 年 11 月 20 日 17:00\n【 重 要 】 保 護 者 会 の お 知ら せ\nEnglish Homework p.10";
+    const items = await call("extractItems", await clean(raw));
+    const task = items.find((i) => i.title.includes("課題プリント"));
+    expect([task.kind, task.due, task.time]).toEqual(["task", "2026-11-20", "17:00"]);
+    const notice = items.find((i) => i.title.includes("保護者会"));
+    expect([notice.kind, notice.category]).toEqual(["notice", "重要"]);
+  });
+});
+
+/* ---------- 動作チェックの判定 judgeSelftest ---------- */
+test.describe("動作チェックの判定 judgeSelftest", () => {
+  const judge = (text) => page.evaluate((t) => window.__classiAssistant.ocr.judgeSelftest(t).ok, text);
+
+  test("日本語・数字・英語がすべて読めていれば成功", async () => {
+    expect(await judge("数 学 課題 プリ ント\n提出 期限 11 月 20 日\nEnglish Homework")).toBe(true);
+  });
+
+  test("英語が読めていなければ失敗（日本語だけのOCRになっていないかを確認）", async () => {
+    expect(await judge("数学 課題プリント\n提出期限 11月20日")).toBe(false);
+  });
+
+  test("日本語が読めていなければ失敗（英語だけのOCRになっていないかを確認）", async () => {
+    expect(await judge("English Homework 11 20")).toBe(false);
   });
 });

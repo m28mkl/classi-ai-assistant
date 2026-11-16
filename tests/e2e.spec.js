@@ -1,12 +1,15 @@
 // iPad Air（縦 820×1180／横 1180×820）での画面テスト
 // - 「今日」は 2026-11-16 10:00（日本時間）に固定
-// - OCRライブラリ（tesseract.js）はテスト用のものに差し替え、実際の文字認識は行わない
-// - 全テスト共通で「JavaScriptエラーがないこと」「外部への通信がOCRライブラリの取得だけであること」を確認する
+// - OCRライブラリ（tesseract.js 5.1.1）は本物を読み込み（SRIの確認も本番どおり）、window.Tesseract だけを
+//   認識結果が固定の偽物に差し替える。実際の文字認識は tests/ocr.spec.js でテストする
+// - 全テスト共通で「JavaScriptエラーがないこと」「外部への通信がOCR関連の固定URLの取得だけであること」を確認する
 const { test, expect } = require("@playwright/test");
+const { OCR_URLS, isAllowedOcrUrl, fulfillLocal } = require("./helpers/ocr-assets");
+const { installFakeTesseract, TINY_PNG } = require("./helpers/fake-tesseract");
 
 const NOW = new Date("2026-11-16T10:00:00+09:00");
-const OCR_LIB = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
-const FAKE_IMAGE = { name: "classi.png", mimeType: "image/png", buffer: Buffer.from("89504e470d0a1a0a", "hex") };
+const OCR_LIB = OCR_URLS.library;
+const FAKE_IMAGE = TINY_PNG;
 
 const OCR_TEXT = `Classi お知らせ
 【重要】明日の時間割変更について
@@ -18,11 +21,6 @@ const OCR_TEXT = `Classi お知らせ
 保護者会のご案内 12月5日
 体育祭 雨天延期のお知らせ
 理科 レポート`;
-
-/** テスト用OCR：createWorker().recognize() が OCR_TEXT を返す */
-const fakeTesseract = (text) => `export async function createWorker() {
-  return { recognize: async () => ({ data: { text: ${JSON.stringify(text)} } }), terminate: async () => {} };
-}`;
 
 let jsErrors;
 let externalRequests;
@@ -38,13 +36,13 @@ test.beforeEach(async ({ page }) => {
     if (m.type() === "error" && !/ERR_FAILED|Failed to load resource/.test(m.text())) jsErrors.push(m.text());
   });
   await page.clock.install({ time: NOW });
-  await page.route("**/*", (route) => {
+  await installFakeTesseract(page, { text: OCR_TEXT });
+  // blob: や data: のURL（端末内のデータ）は外部通信ではないので、http(s) だけを対象にする
+  await page.route(/^https?:\/\//, (route) => {
     const url = route.request().url();
     if (url.startsWith("http://127.0.0.1")) return route.continue();
     externalRequests.push({ url, method: route.request().method(), body: route.request().postData() });
-    if (url === OCR_LIB && ocrAvailable) {
-      return route.fulfill({ contentType: "text/javascript", body: fakeTesseract(OCR_TEXT) });
-    }
+    if (url === OCR_LIB && ocrAvailable) return fulfillLocal(route, url);
     return route.abort();
   });
   await page.goto("/index.html");
@@ -53,7 +51,7 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async () => {
   expect(jsErrors, "JavaScriptエラーが発生していない").toEqual([]);
   for (const r of externalRequests) {
-    expect(r.url, "外部への通信はOCRライブラリの取得だけ").toBe(OCR_LIB);
+    expect(isAllowedOcrUrl(r.url), `外部への通信はOCR関連の固定URLの取得だけ: ${r.url}`).toBe(true);
     expect(r.method).toBe("GET");
     expect(r.body).toBeNull();
   }
