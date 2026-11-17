@@ -160,6 +160,7 @@ AIとのやりとりは [`ai-assist.js`](ai-assist.js) にまとめてありま�
 | `tests/ai-assist.unit.spec.js` | 質問文、回答の整理（【】・Markdown・太字・番号・見出しなし・長すぎる回答）、下書き、模擬データ、AIの切り替え、通信しないこと | 18 |
 | `tests/ai-paste.e2e.spec.js` | iPad Air 縦・横：回答の形式つき質問文のコピー、貼り付けと整理、使ったAIの選択、模擬データ、下書きの作成・修正・コピー、消去、提出の仕組みがないこと、外部通信なし | 16 × 2 |
 | `tests/review-unified.e2e.spec.js` | iPad Air 縦・横：要確認が②の1か所だけに出ること、切り抜き画像と確信度、推測で直したところ、くわしい確認の開閉と反映、消去 | 7 × 2 |
+| `tests/ocr-fixes.e2e.spec.js` | iPad Air 縦・横：1行に並んだ選択肢と「工」→「エ」、次の問題を質問文に入れないこと、推測した記号のワンタップ修正、要確認の行をその場で直す | 9 × 2 |
 | `tests/ipad-usability.e2e.spec.js` | iPad Air 縦・横：文字が13px以上、ホーム画面のアイコン、移動メニュー | 3 × 2 |
 | `tests/ocr-accuracy.spec.js` | **Classi風の架空の問題画面**（`tests/fixtures/classi-like-q01.png`。`make-classi-like-sample.js` で作ったオリジナル）を使って、正解データ（`classi-like-q01.expected.json`）との文字誤り率を確認します。日本語・英文の精度、選択肢の順番、不要なUIの除外、確認画面（元画像との比較・自信がない部分・修正前後の比較・反映）、改善前との比較、前処理の有無の比較、元画像が変更されないこと、端末サイズや画面構成を変えた画像（75%・50%に縮小、ステータスバーなし、左右に余白）、外部通信 | 21 |
 

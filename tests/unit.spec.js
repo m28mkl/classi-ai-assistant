@@ -327,6 +327,62 @@ test.describe("問題の構造 parseQuestion（問題文・英文・選択肢）
   });
 });
 
+test.describe("OCRの改善：1行に並んだ選択肢・「工」・次の問題（ocr-pipeline.js）", () => {
+  // iPad の実機テスト（架空の問題画像）で起きた読み取り結果の再現
+  const LINES = [
+    "2（　）に入る適切な語を、ア〜エから1つ選びなさい。",
+    "This is the book (     ) I bought yesterday.",
+    "ア who イ which ウ where 工 when",
+    "3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。",
+    "(1) He don’t like tomatoes. (     )",
+    "(2) She plays the piano very well. (     )",
+  ].map((text) => ({ text }));
+
+  test("1行に並んだ選択肢を4つに分け、「工」は順番から「エ」（要確認）にする", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.choices.map((c) => [c.label, c.text])).toEqual([["ア", "who"], ["イ", "which"], ["ウ", "where"], ["エ", "when"]]);
+    expect(q.choices[3]).toMatchObject({ labelRead: "工", labelUncertain: true });
+  });
+
+  test("次の問題は「next」に分け、問題文・選択肢に混ぜない（選択肢も2回出さない）", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.title).toBe("2（　）に入る適切な語を、ア〜エから1つ選びなさい。");
+    expect(q.instruction).toBe("This is the book (     ) I bought yesterday.");
+    expect(q.next).toEqual(LINES.slice(3).map((l) => l.text));
+    expect(q.other).toEqual([]);
+    const text = await O("formatQuestion", q);
+    expect(text.split("\n")).toEqual([
+      "2（　）に入る適切な語を、ア〜エから1つ選びなさい。", "This is the book (     ) I bought yesterday.",
+      "選択肢", "ア who", "イ which", "ウ where", "エ when",
+      "3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。", "(1) He don’t like tomatoes. (     )", "(2) She plays the piano very well. (     )",
+    ]);
+    expect(text.match(/ア who/g)).toHaveLength(1);
+  });
+
+  test("splitInlineChoices：最後の選択肢に続く次の問題を切り分ける。選択肢でない行は分けない", async () => {
+    expect(await O("splitInlineChoices", "ア who イ which ウ where 工 when 3 次の英文を書きなさい。"))
+      .toEqual(["ア who", "イ which", "ウ where", "工 when", "3 次の英文を書きなさい。"]);
+    expect(await O("splitInlineChoices", "ア. cat イ. dog")).toEqual(["ア. cat", "イ. dog"]);
+    expect(await O("splitInlineChoices", "ア 東京")).toBeNull();
+    expect(await O("splitInlineChoices", "アメリカ イギリス")).toBeNull();
+    expect(await O("splitInlineChoices", "ア〜エから選びなさい")).toBeNull();
+    expect(await O("splitInlineChoices", "page 3 of ア")).toBeNull();
+  });
+
+  test("isQuestionStart：問題番号の行だけを、次の問題の始まりとみなす", async () => {
+    for (const t of ["3 次の英文が正しければ〇を書きなさい。", "問3 次の文を読みなさい。", "【3】選びなさい。", "第2問"]) expect(await O("isQuestionStart", t), t).toBe(true);
+    for (const t of ["(1) He don’t like tomatoes.", "3+4", "2026年11月20日まで", "11/20 提出", "This is the book."]) expect(await O("isQuestionStart", t), t).toBe(false);
+  });
+
+  test("小問・選択肢の見出しがある画面（今までの形）は、今までどおり", async () => {
+    const q = await O("parseQuestion", ["タイトル", "次の問いに答えなさい。", "小問01", "選びなさい。", "選択肢", "ア one", "イ two"].map((text) => ({ text })));
+    expect(q.title).toBe("タイトル");
+    expect(q.instruction).toBe("次の問いに答えなさい。");
+    expect(q.choices.map((c) => c.text)).toEqual(["one", "two"]);
+    expect(q.next).toEqual([]);
+  });
+});
+
 test.describe("画面構造の解析 analyzeLayout（固定座標に頼らない）", () => {
   /** Classi に似た画面を指定した大きさで描き、解析結果を返す */
   const layoutOf = (w, h) => page.evaluate(([w, h]) => {

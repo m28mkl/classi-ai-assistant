@@ -494,13 +494,63 @@
   const LABEL_LOOKALIKE = { "ア": ["ア", "了", "マ"], "イ": ["イ", "ィ", "亻"], "ウ": ["ウ", "ゥ", "宀"], "エ": ["エ", "工", "ェ"], "オ": ["オ", "ォ"], "カ": ["カ", "力"] };
 
   /**
+   * 次の問題の始まり（問題番号）らしい行か。
+   * 「問3」「第3問」「【3】」「[3]」、または「3 次の英文が…なさい。」のように番号のあとに日本語の指示が続く行。
+   * 「(1)」のような小さな設問の番号は、同じ問題の一部なので含めない。
+   */
+  const QUESTION_WORDS = /なさい|選べ|答えよ|求めよ|書け|示せ|せよ|述べよ|ください/;
+  function isQuestionStart(text) {
+    const t = String(text || "").trim();
+    if (/^(?:問|第)\s*[0-9０-９]{1,2}(?![0-9０-９])/.test(t)) return true;
+    if (/^(?:大問|[【［\[〔]\s*[0-9０-９]{1,2}\s*[】］\]〕])/.test(t)) return true;
+    return /^[0-9０-９]{1,2}(?![0-9０-９:：/／年月日時分])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
+  }
+
+  /**
+   * 1行に並んだ選択肢（例「ア who イ which ウ where 工 when」）を、1つずつの行に分ける。
+   * - 行頭が「ア」（または取り違えやすい形）で、そのあと「イ」「ウ」…が順番に、空白のあとに出てくるときだけ分ける
+   * - 取り違えやすい形（「工」など）は、順番から記号を判断し、記号の読みは元のまま残す（あとで「要確認」にする）
+   * - 最後の選択肢のあとに次の問題（「3 次の英文が…」）が続いていたら、そこで切って別の行にする
+   * 分けられないときは null を返す
+   */
+  function splitInlineChoices(text) {
+    const t = String(text || "").trim();
+    const pos = [];
+    let expect = 0;
+    for (let i = 0; i < t.length && expect < CHOICE_LABELS.length; i++) {
+      const ch = t[i];
+      const want = CHOICE_LABELS[expect];
+      if (ch !== want && !LABEL_LOOKALIKE[want].includes(ch)) continue;
+      if (i > 0 && !/[\s　]/.test(t[i - 1])) continue;
+      if (i + 1 >= t.length || !/[\s　.．、:：)）]/.test(t[i + 1])) continue;
+      if (expect === 0 && i !== 0) return null;
+      pos.push(i);
+      expect++;
+    }
+    if (pos.length < 2) return null;
+    const out = [];
+    for (let k = 0; k < pos.length; k++) out.push(t.slice(pos[k], k + 1 < pos.length ? pos[k + 1] : t.length).trim());
+    const last = out[out.length - 1];
+    const cut = last.match(/^(.*?)[\s　]+((?:問\s*)?[0-9０-９]{1,2}[\s　.．、].*)$/u);
+    if (cut && isQuestionStart(cut[2])) { out[out.length - 1] = cut[1].trim(); out.push(cut[2].trim()); }
+    return out;
+  }
+
+  /**
    * 行のテキストから問題の構造を作る。選択肢の順番・内容は変えない。
    * @param {Array<{text:string, parts?:Array<{cls:string,text:string}>}>} lines
    */
   function parseQuestion(lines) {
-    const q = { title: "", instruction: "", subNumber: "", subInstruction: "", english: "", direction: "", rewrite: "", choices: [], other: [], notes: [] };
-    let i = 0;
-    const L = lines.map((l) => ({ ...l, text: l.text.trim() })).filter((l) => l.text);
+    const q = { title: "", instruction: "", subNumber: "", subInstruction: "", english: "", direction: "", rewrite: "", choices: [], other: [], next: [], notes: [] };
+    // 1行に並んだ選択肢は、1つずつの行に分けてから扱う
+    const L = [];
+    for (const l of lines) {
+      const text = l.text.trim();
+      if (!text) continue;
+      const parts = splitInlineChoices(text);
+      if (parts) for (const p of parts) L.push({ text: p });
+      else L.push({ ...l, text });
+    }
     // 「小問」は文字が小さいと「小間」と読まれることがあるので、それも小問の見出しとして扱う（要確認として記録）
     const isSub = (t) => /^小[問間]\s*[0-9０-９]+/.test(t.replace(/\s/g, ""));
     const subIdx = L.findIndex((l) => isSub(l.text));
@@ -529,8 +579,20 @@
       } else if (q.choices.length) break;
     }
 
+    // 選択肢のあとに次の問題（問題番号で始まる行）があれば、そこから後ろは「次の問題」として分ける
+    const lastChoice = choiceLines.size ? Math.max(...choiceLines) : -1;
+    let nextStart = -1;
+    if (lastChoice >= 0) {
+      for (let k = lastChoice + 1; k < L.length; k++) if (isQuestionStart(L[k].text)) { nextStart = k; break; }
+    }
+    if (nextStart >= 0) {
+      q.next = L.slice(nextStart).map((l) => l.text);
+      L.length = nextStart;
+    }
+
     // タイトル：最初の行（小問・選択肢より前）
-    const before = subIdx >= 0 ? subIdx : (choiceHeader >= 0 ? choiceHeader : L.length);
+    const firstChoice = choiceLines.size ? Math.min(...choiceLines) : L.length;
+    const before = subIdx >= 0 ? subIdx : (choiceHeader >= 0 ? choiceHeader : firstChoice);
     if (before > 0) {
       q.title = L[0].text;
       q.instruction = L.slice(1, before).map((l) => l.text).join("\n");
@@ -601,6 +663,7 @@
       for (const c of q.choices) out.push(`${c.label} ${c.text}`);
     }
     for (const o of q.other) out.push(o);
+    for (const n of q.next || []) out.push(n);
     return out.join("\n");
   }
 
@@ -817,6 +880,6 @@
   global.ClassiOcr = {
     analyzeLayout, findUnderscoreGaps, chooseScale, renderVariant, otsu, scriptClass, splitLineChunks,
     fixEnglish, fixJapanese, parseQuestion, formatQuestion, joinEnglishLines, diffTokens, runPipeline,
-    UNCERTAIN_CONF, CHOICE_LABELS,
+    UNCERTAIN_CONF, CHOICE_LABELS, isQuestionStart, splitInlineChoices,
   };
 })(typeof window !== "undefined" ? window : globalThis);

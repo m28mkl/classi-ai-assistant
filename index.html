@@ -152,6 +152,8 @@ button[aria-busy="true"] { cursor: progress; }
 .review-row .crop canvas { max-width: 140px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 .guess-list li { display: block; background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; margin-top: 6px; font-size: 14px; list-style: none; overflow-wrap: anywhere; }
 .guess-list { margin: 6px 0 0; padding: 0; }
+.line-editor { margin-top: 6px; }
+.line-editor input { width: 100%; }
 .review h3 .count { color: var(--muted); font-weight: 400; font-size: 14px; }
 .review-image summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
 #review-canvas { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
@@ -438,6 +440,8 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 .ai-note { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); color: var(--ok); font-size: 14px; }
 .ex-ai-text { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ex-ai-list { margin: 0 0 8px; padding-left: 1.3em; }
+.q-guess { display: inline-block; margin-left: 6px; font-size: 13px; color: var(--warn); }
+.q-other { margin-top: 12px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; background: #f7f8fb; }
 .ex-ai-missing { margin: 0 0 8px; color: var(--muted, #666); font-size: 14px; }
 .draft-box { margin-top: 12px; padding: 12px; border: 2px solid var(--line); border-radius: 12px; }
 .draft-box h3 { margin: 0 0 6px; font-size: 16px; }
@@ -1580,9 +1584,113 @@ function detectMarker(line) {
   return null;
 }
 
+/* 取り違えやすい形の記号（OCRで「エ」が漢字の「工」になるなど）。前の選択肢の次の記号の位置にあるときだけ、その記号とみなす */
+const KANA_ORDER = ["ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ"];
+const KANA_LOOKALIKE = { "ア": ["了", "マ"], "イ": ["ィ", "亻"], "ウ": ["ゥ", "宀"], "エ": ["工", "ェ"], "オ": ["ォ"], "カ": ["力"] };
+const KANA_SEP = /[\s　.．、:：)）]/;
+
+/**
+ * 次の問題の始まり（問題番号）らしい行か（ocr-pipeline.js の isQuestionStart と同じ考え方）。
+ * 「問3」「第3問」「【3】」、または「3 次の英文が…なさい。」のように番号のあとに日本語の指示が続く行。「(1)」は含めない。
+ */
+const QUESTION_WORDS = /なさい|選べ|答えよ|求めよ|書け|示せ|せよ|述べよ|ください/;
+function isQuestionStart(line) {
+  const t = String(line || "").trim();
+  if (/^(?:問|第)\s*[0-9０-９]{1,2}(?![0-9０-９])/.test(t)) return true;
+  if (/^(?:大問|[【［\[〔]\s*[0-9０-９]{1,2}\s*[】］\]〕])/.test(t)) return true;
+  return /^[0-9０-９]{1,2}(?![0-9０-９:：/／年月日時分])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
+}
+
+/**
+ * 1行に並んだカタカナの選択肢（「ア who イ which ウ where 工 when」）の、記号の位置を返す。
+ * 行頭が「ア」で、そのあと「イ」「ウ」…が順番に空白のあとに出てくるときだけ（2つ以上）。
+ */
+function inlineChoicePositions(t) {
+  const pos = [];
+  let expect = 0;
+  for (let i = 0; i < t.length && expect < KANA_ORDER.length; i++) {
+    const want = KANA_ORDER[expect];
+    if (t[i] !== want && !(KANA_LOOKALIKE[want] || []).includes(t[i])) continue;
+    if (i > 0 && !/[\s　]/.test(t[i - 1])) continue;
+    if (i + 1 >= t.length || !KANA_SEP.test(t[i + 1])) continue;
+    if (expect === 0 && i !== 0) return [];
+    pos.push(i);
+    expect++;
+  }
+  return pos.length >= 2 ? pos : [];
+}
+
+/**
+ * 問題文を分ける前の準備（読み取った文章そのものは変えない）
+ * 1. 1行に並んだ選択肢を、1つずつに分ける
+ * 2. 取り違えやすい形の記号（「工」など）を、順番から判断した記号に読みかえる（labelGuesses に記録。要確認）
+ * 3. 次の問題（問題番号で始まる行）から後ろを otherLines に分ける（質問文には入れない）
+ * @returns {{lines:Array<{text:string, src:string, guess?:object}>, otherLines:string[], labelGuesses:Array}}
+ */
+function prepareQuestionLines(text) {
+  const raw = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = [];
+  const labelGuesses = [];
+  for (const src of raw) {
+    const pos = inlineChoicePositions(src);
+    if (!pos.length) { lines.push({ text: src, src }); continue; }
+    pos.forEach((p, k) => {
+      let piece = src.slice(p, k + 1 < pos.length ? pos[k + 1] : src.length).trim();
+      const want = KANA_ORDER[k];
+      let guess = null;
+      if (piece[0] !== want) {
+        guess = { from: piece[0], to: want, src, index: p };
+        labelGuesses.push(guess);
+        piece = want + piece.slice(1);
+      }
+      // 最後の選択肢に、次の問題が続いていたら切り分ける
+      if (k === pos.length - 1) {
+        const cut = piece.match(/^(.*?)[\s　]+((?:問\s*)?[0-9０-９]{1,2}[\s　.．、].*)$/u);
+        if (cut && isQuestionStart(cut[2])) {
+          lines.push({ text: cut[1].trim(), src, guess });
+          lines.push({ text: cut[2].trim(), src });
+          return;
+        }
+      }
+      lines.push({ text: piece, src, guess });
+    });
+  }
+  // 行頭の取り違えやすい形：前の行の記号の次の位置にあるときだけ読みかえる（例：ウ の次の行の「工」→「エ」）
+  let prevKana = -1;
+  for (const l of lines) {
+    const head = l.text[0];
+    const sepOk = l.text.length > 1 && KANA_SEP.test(l.text[1]);
+    if (KANA_ORDER.includes(head) && sepOk) { prevKana = KANA_ORDER.indexOf(head); continue; }
+    const want = KANA_ORDER[prevKana + 1];
+    if (prevKana >= 0 && want && (KANA_LOOKALIKE[want] || []).includes(head) && sepOk) {
+      l.guess = { from: head, to: want, src: l.src, index: l.src.indexOf(l.text) };
+      labelGuesses.push(l.guess);
+      l.text = want + l.text.slice(1);
+      prevKana++;
+    }
+  }
+  // 次の問題の始まり：前に別の問題番号か選択肢があるときだけ、そこで切る
+  let cutAt = -1;
+  let seenStart = false;
+  let seenChoice = false;
+  lines.forEach((l, k) => {
+    if (cutAt >= 0) return;
+    if (k > 0 && isQuestionStart(l.text) && (seenStart || seenChoice)) { cutAt = k; return; }
+    if (isQuestionStart(l.text)) seenStart = true;
+    if (detectMarker(l.text)) seenChoice = true;
+  });
+  const kept = cutAt >= 0 ? lines.slice(0, cutAt) : lines;
+  const otherLines = cutAt >= 0 ? lines.slice(cutAt).map((l) => l.text) : [];
+  // 次の問題の部分の読みかえは記録しない（質問文に入れないため）
+  return { lines: kept, otherLines, labelGuesses: labelGuesses.filter((g) => kept.some((l) => l.guess === g)) };
+}
+
 function parseQuestion(text) {
-  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const prep = prepareQuestionLines(text);
+  const objs = prep.lines;
+  const lines = objs.map((l) => l.text);
   const marks = lines.map((l) => detectMarker(l));
+  const extra = { otherLines: prep.otherLines, labelGuesses: prep.labelGuesses };
 
   let chosen = null;
   for (const [family] of MARKERS) {
@@ -1596,22 +1704,35 @@ function parseQuestion(text) {
     if (!chosen || idx[0] < chosen.first) chosen = { family, first: idx[0], last: idx[idx.length - 1] };
   }
 
-  if (!chosen) return { stemLines: lines, stem: lines.join("\n"), choices: [], afterLines: [], family: null };
+  if (!chosen) return { stemLines: lines, stem: lines.join("\n"), choices: [], afterLines: [], family: null, ...extra };
 
   const choices = [];
   for (let i = chosen.first; i <= chosen.last; i++) {
     const m = marks[i];
     if (m && m.family === chosen.family) {
-      choices.push({ marker: m.marker, text: m.rest, raws: [lines[i]] });
+      choices.push({ marker: m.marker, text: m.rest, raws: [lines[i]], srcs: [objs[i].src], guess: objs[i].guess || null });
     } else {
       // 記号のない行は、直前の選択肢が次の行に続いたものとして扱う
       const c = choices[choices.length - 1];
       c.text = c.text ? `${c.text} ${lines[i]}` : lines[i];
       c.raws.push(lines[i]);
+      c.srcs.push(objs[i].src);
     }
   }
-  const stemLines = lines.slice(0, chosen.first);
-  return { stemLines, stem: stemLines.join("\n"), choices, afterLines: lines.slice(chosen.last + 1), family: chosen.family };
+  // 選択肢の直前の「選択肢」という見出しの行は、問題文に入れない
+  let stemLines = lines.slice(0, chosen.first);
+  if (stemLines.length && /^選択肢$/.test(stemLines[stemLines.length - 1].replace(/\s/g, ""))) stemLines = stemLines.slice(0, -1);
+  return { stemLines, stem: stemLines.join("\n"), choices, afterLines: lines.slice(chosen.last + 1), family: chosen.family, ...extra };
+}
+
+/** 選択肢を1行の文章にする（「ア．光は…」はそのまま、「ア who」のように記号のあとに点がないときは空白を入れる） */
+function choiceLine(c) {
+  return /[.．)）:：、]$/.test(c.marker) ? `${c.marker}${c.text}` : `${c.marker} ${c.text}`;
+}
+
+/** 選択肢に「要確認」を付けるか（読み取りに自信がない行を含む、または記号を推測で読みかえた） */
+function choiceFlagged(c, flagged) {
+  return !!c.guess || (c.srcs || c.raws).some((r) => flagged.has(r));
 }
 
 /** 問題の種類をキーワードで推測する（AIの判断ではない） */
@@ -1637,6 +1758,7 @@ function detectQuestionType(text) {
 /* ---------------- 読み取り結果の確認（要確認・確認済み） ---------------- */
 let ocrMeta = null;       // 直近のOCRの結果情報（手で入力したときは null）
 let uncertain = [];       // 要確認の行 { id, text, confidence, words, done, edited }
+let lineEditId = null;    // その場で直している要確認の行の id
 let guesses = [];         // 改善版OCRが推測で直した箇所（「=」→「⇒」など）。要確認の一覧に一緒に表示する
 let textConfirmed = false; // 本人が「この内容で合っています」を押したか
 
@@ -1671,6 +1793,17 @@ function lineWithMarks(u) {
   return p;
 }
 
+/** 文章欄の、指定した行（最初に一致した1行）を置きかえる。手で直したときと同じ扱いにする */
+function replaceResultLine(oldLine, newLine) {
+  const lines = result.value.split("\n");
+  const at = lines.findIndex((l) => l.trim() === oldLine.trim());
+  if (at < 0) return false;
+  lines[at] = newLine;
+  result.value = lines.join("\n");
+  result.dispatchEvent(new Event("input"));
+  return true;
+}
+
 function selectLineInResult(text) {
   const at = result.value.indexOf(text);
   if (at < 0) return;
@@ -1684,10 +1817,12 @@ function renderReview() {
   box.replaceChildren();
   if (!ocrMeta) {
     box.append(el("p", "review-note", "画像を読み取ると、自信のない箇所がここに「要確認」と表示されます。"));
+    renderGuesses(box);
     return;
   }
   if (!ocrMeta.hasConfidence) {
     box.append(el("p", "review-note", "今回の読み取りでは自信度の情報が得られませんでした。すべての行を、Classiの画面と見比べて確認してください。"));
+    renderGuesses(box);
     return;
   }
   if (!uncertain.length) {
@@ -1696,7 +1831,8 @@ function renderReview() {
     return;
   }
   const open = uncertain.filter((u) => !u.done).length;
-  box.append(el("h3", "", `要確認 ${open}件（全${uncertain.length}件）`));
+  box.append(el("h3", "", `要確認 残り${open}件（全${uncertain.length}件）`));
+  if (open) box.append(el("p", "review-note", "黄色の行を Classi の画面と見比べて、合っていれば「合っている」、違っていれば「ここで直す」を押してください。"));
   const list = el("ul", "review-list");
   for (const u of uncertain) {
     const li = el("li", "review-row" + (u.done ? " done" : ""));
@@ -1718,9 +1854,40 @@ function renderReview() {
       }
       li.append(crops);
     }
-    if (!u.done) {
+    if (!u.done && lineEditId === u.id) {
+      // その場で1行だけ直す（iPadで大きな文章欄の中を選ぶ手間をなくす）
+      const editor = el("div", "line-editor");
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = u.text;
+      input.dataset.role = "line-edit";
+      input.setAttribute("aria-label", "この行の正しい文字");
+      const apply = el("button", "inline", "直す");
+      apply.type = "button";
+      apply.dataset.action = "apply-edit";
+      apply.addEventListener("click", () => {
+        const fixed = input.value.trim();
+        lineEditId = null;
+        if (fixed && fixed !== u.text && replaceResultLine(u.text, fixed)) log(`「${short(u.text)}」をその場で修正`);
+        else refreshReading();
+      });
+      const cancel = el("button", "secondary inline", "やめる");
+      cancel.type = "button";
+      cancel.dataset.action = "cancel-edit";
+      cancel.addEventListener("click", () => { lineEditId = null; refreshReading(); });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); apply.click(); } });
+      const row = el("div", "review-actions");
+      row.append(apply, cancel);
+      editor.append(input, row);
+      li.append(editor);
+      queueMicrotask(() => input.focus({ preventScroll: true }));
+    } else if (!u.done) {
       const actions = el("div", "review-actions");
-      const pick = el("button", "secondary inline", "この行を選んで修正");
+      const edit = el("button", "inline", "ここで直す");
+      edit.type = "button";
+      edit.dataset.action = "edit-line";
+      edit.addEventListener("click", () => { lineEditId = u.id; renderReview(); });
+      const pick = el("button", "secondary inline", "文章欄で選ぶ");
       pick.type = "button";
       pick.dataset.action = "select-line";
       pick.addEventListener("click", () => selectLineInResult(u.text));
@@ -1728,7 +1895,7 @@ function renderReview() {
       ok.type = "button";
       ok.dataset.action = "mark-ok";
       ok.addEventListener("click", () => { u.done = true; u.edited = false; log(`「${short(u.text)}」を確認済みにした`); refreshReading(); });
-      actions.append(pick, ok);
+      actions.append(edit, ok, pick);
       li.append(actions);
     }
     list.append(li);
@@ -1740,15 +1907,33 @@ function renderReview() {
   }
 }
 
-/** 推測で直した箇所（要確認）を、要確認の一覧の下に表示する */
+/**
+ * 推測で直した箇所（要確認）を、要確認の一覧の下に表示する
+ * - 改善版OCRが直したところ（「=」→「⇒」など。文章はすでに直っている）
+ * - 文章の中の選択肢の記号で、取り違えやすい形のもの（「工」→「エ」など）。「直す」を押したときだけ文章を直す
+ */
 function renderGuesses(box) {
-  if (!guesses.length) return;
-  box.append(el("h3", "guess-title", `自動で推測して直したところ ${guesses.length}件（要確認）`));
+  const textGuesses = result.value.trim() ? parseQuestion(result.value).labelGuesses : [];
+  if (!guesses.length && !textGuesses.length) return;
+  box.append(el("h3", "guess-title", `自動で推測したところ ${guesses.length + textGuesses.length}件（要確認）`));
   const ul = el("ul", "guess-list");
   ul.id = "review-guess";
   for (const c of guesses) {
     const li = el("li");
     li.append(el("span", "badge b-check", "要確認"), ` 「${c.from}」→「${c.to}」：${c.reason}`);
+    ul.append(li);
+  }
+  for (const g of textGuesses) {
+    const li = el("li", "text-guess");
+    li.append(el("span", "badge b-check", "要確認"), ` 選択肢の記号「${g.from}」は、順番から「${g.to}」と考えられます（${short(g.src)}）`);
+    const fix = el("button", "inline", `「${g.to}」に直す`);
+    fix.type = "button";
+    fix.dataset.action = "fix-label";
+    fix.addEventListener("click", () => {
+      const line = g.src.slice(0, g.index) + g.to + g.src.slice(g.index + 1);
+      if (replaceResultLine(g.src, line)) log(`選択肢の記号「${g.from}」を「${g.to}」に修正`);
+    });
+    li.append(" ", fix);
     ul.append(li);
   }
   box.append(ul);
@@ -1804,7 +1989,8 @@ function renderExplain() {
     for (const c of parsed.choices) {
       const li = el("li");
       li.append(el("span", "marker", c.marker), el("span", "text", c.text));
-      if (c.raws.some((r) => flagged.has(r))) li.append(flaggedBadge());
+      if (choiceFlagged(c, flagged)) li.append(flaggedBadge());
+      if (c.guess) li.append(el("span", "q-guess", `記号「${c.guess.from}」を「${c.guess.to}」と判断`));
       ul.append(li);
     }
     qBody.append(ul);
@@ -1818,6 +2004,14 @@ function renderExplain() {
       if (flagged.has(line)) p.append(" ", flaggedBadge());
       qBody.append(p);
     }
+  }
+  if (parsed.otherLines.length) {
+    const box = el("div", "q-other");
+    box.id = "ex-other";
+    box.append(el("p", "q-label", "別の問題と思われる部分（解説用の質問文には入れません）"));
+    for (const line of parsed.otherLines) box.append(el("p", "q-line", line));
+    box.append(el("p", "small", "この問題も解説してほしいときは、②の欄でこの問題だけを残して、もう一度「この内容で合っています」を押してください。"));
+    qBody.append(box);
   }
   qBody.append(el("p", "small", "文章の分け方は自動判定です。違っているときは、②の文章を直接修正してください。"));
 
@@ -1835,7 +2029,7 @@ function buildExplainPrompt() {
   const mark = (line) => (flagged.has(line) ? `${line} 【要確認】` : line);
   const stem = parsed.stemLines.length ? parsed.stemLines.map(mark).join("\n") : "（なし）";
   const choices = parsed.choices.length
-    ? parsed.choices.map((c) => c.raws.map(mark).join(" ")).join("\n")
+    ? parsed.choices.map((c) => `${choiceLine(c)}${choiceFlagged(c, flagged) ? " 【要確認】" : ""}`).join("\n")
     : "（なし）";
   const after = parsed.afterLines.length ? `\n\n【選択肢のあとの行】\n${parsed.afterLines.map(mark).join("\n")}` : "";
   return `あなたは学習支援の先生です。次の問題について、答えだけでなく、考え方が分かるように解説してください。
@@ -1906,7 +2100,7 @@ function buildAiPayload() {
   const mark = (line) => (flagged.has(line) ? `${line} 【要確認】` : line);
   return {
     stem: parsed.stemLines.map(mark).join("\n"),
-    choices: parsed.choices.map((c) => ({ marker: c.marker, text: c.raws.length ? c.text + (c.raws.some((r) => flagged.has(r)) ? " 【要確認】" : "") : c.text })),
+    choices: parsed.choices.map((c) => ({ marker: c.marker, text: c.text + (choiceFlagged(c, flagged) ? " 【要確認】" : "") })),
     afterLines: parsed.afterLines.map(mark),
     confirmedByUser: true,
   };
@@ -1914,7 +2108,7 @@ function buildAiPayload() {
 
 function formatAiPayload(p) {
   const lines = ["【問題文】", p.stem || "（なし）"];
-  if (p.choices.length) lines.push("", "【選択肢】", ...p.choices.map((c) => `${c.marker}${c.text}`));
+  if (p.choices.length) lines.push("", "【選択肢】", ...p.choices.map(choiceLine));
   if (p.afterLines.length) lines.push("", "【選択肢のあとの行】", ...p.afterLines);
   return lines.join("\n");
 }
@@ -2409,6 +2603,7 @@ function applyOcrResult(out, enhance = false) {
   result.value = text;
   ocrMeta = { hasConfidence: out.hasConfidence, enhanced: enhance };
   uncertain = out.uncertainLines.map((u, i) => ({ id: i + 1, ...u, done: false, edited: false }));
+  lineEditId = null;
   textConfirmed = false;
   closeConsent();
   aiResult = null;
@@ -2555,7 +2750,8 @@ $("copy-explain").addEventListener("click", async () => {
   explainPrompt.value = buildExplainPrompt();
   try {
     await navigator.clipboard.writeText(explainPrompt.value);
-    explainStatus.textContent = "解説用の質問をコピーしました！（まだどこにも送信していません）";
+    explainStatus.textContent = "解説用の質問をコピーしました！（まだどこにも送信していません）"
+      + (parseQuestion(result.value).otherLines.length ? "　別の問題と思われる部分は、質問文に入れていません。" : "");
     log("解説用の質問をコピー");
   } catch {
     explainPrompt.focus();
@@ -2640,6 +2836,7 @@ $("clear-all").addEventListener("click", () => {
   hideReview();
   ocrMeta = null;
   uncertain = [];
+  lineEditId = null;
   textConfirmed = false;
   closeConsent();
   aiResult = null;
@@ -2731,6 +2928,7 @@ window.__classiAssistant = {
     result.value = text;
     ocrMeta = { hasConfidence, enhanced };
     uncertain = list.map((u, i) => ({ id: i + 1, words: [], confidence: null, ...u, done: false, edited: false }));
+    lineEditId = null;
     textConfirmed = false;
     refreshReading();
   },

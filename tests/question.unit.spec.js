@@ -70,6 +70,80 @@ test.describe("問題文と選択肢の分け方 parseQuestion", () => {
   });
 });
 
+// iPad の実機テスト（架空の問題画像）で起きた読み取り結果を、そのまま再現する
+const REAL_CASE = [
+  "2（　）に入る適切な語を、ア〜エから1つ選びなさい。",
+  "This is the book (     ) I bought yesterday.",
+  "ア who イ which ウ where 工 when",
+  "3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。",
+  "(1) He don’t like tomatoes. (     )",
+  "(2) She plays the piano very well. (     )",
+  "選択肢",
+  "ア who イ which ウ where 工 when",
+].join("\n");
+
+test.describe("OCRの改善：「エ」と「工」・1行に並んだ選択肢・次の問題が混ざる問題", () => {
+  test("実機テストの再現：選択肢が4つに分かれ、「工」は順番から「エ」と判断し、次の問題は別にする", async () => {
+    const r = await parse(REAL_CASE);
+    expect(r.stemLines).toEqual(["2（　）に入る適切な語を、ア〜エから1つ選びなさい。", "This is the book (     ) I bought yesterday."]);
+    expect(r.choices.map((c) => [c.marker, c.text])).toEqual([["ア", "who"], ["イ", "which"], ["ウ", "where"], ["エ", "when"]]);
+    expect(r.choices[3].guess).toMatchObject({ from: "工", to: "エ" });
+    expect(r.choices.slice(0, 3).every((c) => !c.guess)).toBe(true);
+    expect(r.labelGuesses).toHaveLength(1);
+    expect(r.afterLines).toEqual([]);
+    expect(r.otherLines[0]).toBe("3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。");
+    expect(r.otherLines).toContain("(2) She plays the piano very well. (     )");
+    // 次の問題の文章が、選択肢や問題文に入らない
+    for (const c of r.choices) expect(c.text).not.toMatch(/次の英文|tomatoes|piano/);
+  });
+
+  test("最後の選択肢と同じ行に次の問題が続いていても、そこで切り分ける", async () => {
+    const r = await parse("2（　）に入る語を選びなさい。\nア who イ which ウ where 工 when 3 次の英文が正しければ〇を書きなさい。\n(1) He don’t like it.");
+    expect(r.choices.map((c) => c.text)).toEqual(["who", "which", "where", "when"]);
+    expect(r.otherLines).toEqual(["3 次の英文が正しければ〇を書きなさい。", "(1) He don’t like it."]);
+  });
+
+  test("1行ずつの選択肢でも、ウの次の行の「工」は「エ」と判断する（要確認）", async () => {
+    const r = await parse("問1 正しいものを選びなさい。\nア．光は直進する\nイ．音は真空中を伝わる\nウ．水は0℃で凍る\n工．氷は水に沈む");
+    expect(r.choices.map((c) => c.marker)).toEqual(["ア．", "イ．", "ウ．", "エ．"]);
+    expect(r.choices[3]).toMatchObject({ text: "氷は水に沈む", guess: { from: "工", to: "エ" } });
+  });
+
+  test("選択肢の位置ではない「工」（工場・工夫など）は読みかえない", async () => {
+    const r = await parse("工場の見学について答えなさい。\nア．工夫する\nイ．工作する");
+    expect(r.stem).toBe("工場の見学について答えなさい。");
+    expect(r.choices.map((c) => c.text)).toEqual(["工夫する", "工作する"]);
+    expect(r.labelGuesses).toEqual([]);
+  });
+
+  test("文の中の「ア〜エ」や、カタカナで始まる言葉は、選択肢として分けない", async () => {
+    const r = await parse("ア〜エから1つ選びなさい。\nアメリカ イギリス フランス");
+    expect(r.choices).toEqual([]);
+    expect(r.stemLines).toHaveLength(2);
+  });
+
+  test("「(1)」「(2)」のような小さな設問の番号では、問題を切り分けない", async () => {
+    const r = await parse("3 次の英文が正しければ〇、誤っていれば X を書きなさい。\n(1) He don’t like tomatoes.\n(2) She plays the piano.");
+    expect(r.otherLines).toEqual([]);
+    expect(r.choices.map((c) => c.marker)).toEqual(["(1)", "(2)"]);
+  });
+
+  test("「問3」「【3】」で始まる次の問題も切り分ける", async () => {
+    expect((await parse("問2 選びなさい。\nア．あ\nイ．い\n問3 次の文を読みなさい。")).otherLines).toEqual(["問3 次の文を読みなさい。"]);
+    expect((await parse("【2】選びなさい。\nア．あ\nイ．い\n【3】次の文を読みなさい。")).otherLines).toEqual(["【3】次の文を読みなさい。"]);
+  });
+
+  test("問題番号が1つだけなら切り分けない（今までどおり）", async () => {
+    const r = await parse("1. 次の計算をしなさい。\n3+4");
+    expect(r.otherLines).toEqual([]);
+  });
+
+  test("選択肢の直前の「選択肢」という見出しは、問題文に入れない", async () => {
+    const r = await parse("次から選びなさい。\n選択肢\nア．あ\nイ．い");
+    expect(r.stemLines).toEqual(["次から選びなさい。"]);
+  });
+});
+
 test.describe("問題の種類 detectQuestionType", () => {
   const CASES = [
     ["次のうち正しいものを選べ。\nア．あ\nイ．い", "選択問題（記号で答える）"],

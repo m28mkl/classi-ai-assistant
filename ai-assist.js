@@ -84,7 +84,8 @@
    */
   function buildPrompt(q = {}) {
     const stem = (q.stem || "").trim() || "（なし）";
-    const choices = (q.choices || []).length ? q.choices.map((c) => `${c.marker}${c.text}`).join("\n") : "（なし）";
+    const sep = (m) => (/[.．)）:：、]$/.test(m) ? "" : " ");
+    const choices = (q.choices || []).length ? q.choices.map((c) => `${c.marker}${sep(c.marker)}${c.text}`).join("\n") : "（なし）";
     const after = (q.afterLines || []).length ? `\n\n【選択肢のあとの行】\n${q.afterLines.join("\n")}` : "";
     const type = q.type && q.type !== "不明" ? `\n\n【問題の種類（自動判定・参考）】\n${q.type}` : "";
     return `あなたは学習支援の先生です。次の問題について、答えだけでなく、考え方が分かるように解説してください。
