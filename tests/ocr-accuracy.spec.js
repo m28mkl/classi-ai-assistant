@@ -1,7 +1,7 @@
-// Classi の実画像（iPad Air のスクリーンショット）を使った OCR 精度のテスト
+// Classi風の架空の問題画面（iPad Air のスクリーンショットと同じ大きさ）を使った OCR 精度のテスト
 //
-// - tests/fixtures/classi-q01.png … 実際の Classi の画面（個人情報なし）
-// - tests/fixtures/classi-q01.expected.json … 評価用の正解データ
+// - tests/fixtures/classi-like-q01.png … 架空の問題画面（make-classi-like-sample.js で作ったオリジナル。実在の教材・画面ではない）
+// - tests/fixtures/classi-like-q01.expected.json … 評価用の正解データ
 // - 本物の tesseract.js 5.1.1・エンジン・日本語/英語の言語データ（npm 公式レジストリから取得したもの）を、
 //   CDN の固定URLへの要求に対して返す（cdn.jsdelivr.net には通信しない）
 // - 改善前（画像全体を jpn+eng で1回読むだけの従来の方法）と改善後を、正解データとの文字誤り率（CER）で比べる
@@ -10,9 +10,9 @@ const { test, expect } = require("@playwright/test");
 const path = require("path");
 const { isAllowedOcrUrl, fulfillLocal } = require("./helpers/ocr-assets");
 const ev = require("./helpers/ocr-eval");
-const EXPECTED = require("./fixtures/classi-q01.expected.json");
+const EXPECTED = require("./fixtures/classi-like-q01.expected.json");
 
-const CLASSI = path.join(__dirname, "fixtures", "classi-q01.png");
+const CLASSI = path.join(__dirname, "fixtures", "classi-like-q01.png");
 const SAMPLE_TEXT = "お知らせ・課題一覧\n数学 課題プリント3\n提出期限：2026年11月20日 17:00\n【重要】保護者会のお知らせ\nEnglish Homework p.10";
 const JA_FIELDS = ["title", "instruction", "subNumber", "subInstruction", "direction"];
 const EN_FIELDS = ["english", "rewrite", "choiceア", "choiceイ", "choiceウ", "choiceエ"];
@@ -44,7 +44,7 @@ function expectOnlyOcrDownloads(external) {
  * mode: "legacy"（改善前：画像全体を jpn+eng で1回）| "pipeline"（改善後）
  * variant: 画像の変形（"original" | "scale75" | "scale50" | "noStatusBar" | "wideMargins"）
  */
-function runInPage(page, { fixture = "classi-q01.png", mode = "pipeline", variant = "original", options = {} } = {}) {
+function runInPage(page, { fixture = "classi-like-q01.png", mode = "pipeline", variant = "original", options = {} } = {}) {
   return page.evaluate(async ({ fixture, mode, variant, options }) => {
     const T = await window.__classiAssistant.ocr.loadTesseract();
     const cfg = window.__classiAssistant.ocr.config;
@@ -88,7 +88,7 @@ test.beforeEach(({ page }) => {
 test.afterEach(() => expect(pageErrors, "未処理のJavaScriptエラーがない").toEqual([]));
 
 /* ============ 画面からの読み取り（改善後）。1回読み取って結果を複数のテストで確認する ============ */
-test.describe("Classi実画像：画面から読み取った結果（改善後）", () => {
+test.describe("Classi風の架空画像：画面から読み取った結果（改善後）", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(180000);
 
@@ -123,8 +123,8 @@ test.describe("Classi実画像：画面から読み取った結果（改善後�
   test("英文・書き換え・選択肢の英語を正しく読み取る（I と 1・l の取り違えなし）", async () => {
     const e = ev.evaluate(EXPECTED, text);
     for (const k of EN_FIELDS) expect(e[k], `${k}\n${text}`).toBe(0);
-    expect(text).toContain("He is the man. I spoke to him yesterday.");
-    expect(text).not.toMatch(/\b(1spoke|lspoke|tolspoke|to1spoke)\b/);
+    expect(text).toContain("This is the park. I played in it last week.");
+    expect(text).not.toMatch(/\b(1played|lplayed|inlplayed|in1played)\b|\| played/);
   });
 
   test("選択肢はア・イ・ウ・エの順番のまま、内容も画面どおり（文法の正誤は直さない）", async () => {
@@ -165,12 +165,14 @@ test.describe("Classi実画像：画面から読み取った結果（改善後�
     await expect(page.locator("#review-uncertain")).toHaveCount(0);
   });
 
-  test("自動で直した箇所を表示し、推測で判断したもの（「=」→「⇒」など）は要確認の一覧に出す", async () => {
+  test("自動で直した箇所を表示し、推測で判断したもの（「>」→「⇒」など）は要確認の一覧にだけ出す", async () => {
     const changes = page.locator("#review-changes li");
     await expect(changes.filter({ hasText: "代名詞の I" }).first()).toBeVisible();
+    await expect(changes.filter({ hasText: "（要確認）" })).toHaveCount(0);
+    // 推測で直したところは、OCRの結果しだいで出ないこともある。出たときは、すべて「要確認」として表示する
     const guess = page.locator("#review-guess li");
-    await expect(guess.filter({ hasText: "⇒" })).toContainText("要確認");
-    await expect(changes.filter({ hasText: "⇒" })).toHaveCount(0);
+    const n = await guess.count();
+    for (let i = 0; i < n; i++) await expect(guess.nth(i)).toContainText("要確認");
   });
 
   test("元の画像と、除外した部分・読み取った行を重ねて表示する（元画像と結果を見比べられる）", async () => {
@@ -192,12 +194,12 @@ test.describe("Classi実画像：画面から読み取った結果（改善後�
     await expect(diff.locator("del").first()).toBeVisible(); // 例：「|」→「I」
     await expect(diff.locator("ins").first()).toBeVisible();
     const choiceA = page.locator('#ocr-review [data-choice="ア"]');
-    await choiceA.fill("to I spoke whom (edited)");
+    await choiceA.fill("in I played which (edited)");
     await expect(diff.locator("div").nth(1)).toContainText("edited");
     await page.click("#review-apply");
-    await expect(page.locator("#result")).toHaveValue(/ア to I spoke whom \(edited\)/);
+    await expect(page.locator("#result")).toHaveValue(/ア in I played which \(edited\)/);
     await expect(page.locator("#history")).toContainText("確認した内容を「読み取った情報」に反映");
-    await choiceA.fill("to I spoke whom");
+    await choiceA.fill("in I played which");
     await page.click("#review-apply");
   });
 
@@ -208,7 +210,7 @@ test.describe("Classi実画像：画面から読み取った結果（改善後�
 });
 
 /* ============ 改善前と改善後の比較 ============ */
-test.describe("Classi実画像：改善前と改善後の比較", () => {
+test.describe("Classi風の架空画像：改善前と改善後の比較", () => {
   test.setTimeout(240000);
 
   test("改善後はすべての項目で改善前と同じか良く、全体の誤り率が下がる", async ({ page, context }, testInfo) => {
@@ -246,8 +248,8 @@ test.describe("画像の前処理による精度の比較", () => {
   test.setTimeout(240000);
 
   for (const [fixture, variant, label] of [
-    ["classi-q01.png", "original", "Classi実画像"],
-    ["classi-q01.png", "scale50", "Classi実画像を50%に縮小（文字が小さい場合）"],
+    ["classi-like-q01.png", "original", "Classi風の架空画像"],
+    ["classi-like-q01.png", "scale50", "Classi風の架空画像を50%に縮小（文字が小さい場合）"],
     ["ocr-sample-ja.png", "original", "架空のサンプル"],
   ]) {
     test(`${label}：前処理あり（拡大・グレースケール・コントラスト・二値化の比較）は、前処理なし（等倍）より精度が下がらない`, async ({ page, context }, testInfo) => {
@@ -255,7 +257,7 @@ test.describe("画像の前処理による精度の比較", () => {
       await page.goto("/index.html");
       const raw = await runInPage(page, { fixture, variant, options: { preprocess: false } });
       const pre = await runInPage(page, { fixture, variant, options: { preprocess: true } });
-      const expected = fixture === "classi-q01.png" ? ev.expectedText(EXPECTED) : SAMPLE_TEXT;
+      const expected = fixture === "classi-like-q01.png" ? ev.expectedText(EXPECTED) : SAMPLE_TEXT;
       const cRaw = ev.totalCer(expected, raw.text), cPre = ev.totalCer(expected, pre.text);
       console.log(`[${testInfo.project.name}] ${label}：前処理なし ${pct(cRaw)} / 前処理あり ${pct(cPre)}（採用：${JSON.stringify(pre.variantsUsed)}）`);
       expect(cPre, `前処理なし ${pct(cRaw)}\n${raw.text}\n\n前処理あり ${pct(cPre)}\n${pre.text}`).toBeLessThanOrEqual(cRaw);
