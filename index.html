@@ -427,6 +427,12 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 .ai-note { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); color: var(--ok); font-size: 14px; }
 .ex-ai-text { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ex-ai-list { margin: 0 0 8px; padding-left: 1.3em; }
+.ex-ai-missing { margin: 0 0 8px; color: var(--muted, #666); font-size: 14px; }
+.draft-box { margin-top: 12px; padding: 12px; border: 2px solid var(--line); border-radius: 12px; }
+.draft-box h3 { margin: 0 0 6px; font-size: 16px; }
+#draft-text { min-height: 120px; }
+#ai-paste { min-height: 160px; }
+.steps { margin: 4px 0 8px; padding-left: 1.4em; }
 .badge.b-ai { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
 </style>
 </head>
@@ -586,20 +592,35 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
     <h3 id="ex-h-method"><span class="no">4.</span>解き方・考え方</h3>
     <div class="ex-ai-body" data-ai-body="method"><p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p></div>
   </section>
+  <section class="ex-item" data-ex="points" aria-labelledby="ex-h-points">
+    <h3 id="ex-h-points"><span class="no">5.</span>重要ポイント</h3>
+    <div class="ex-ai-body" data-ai-body="points"><p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p></div>
+  </section>
   <section class="ex-item" data-ex="candidates" aria-labelledby="ex-h-candidates">
-    <h3 id="ex-h-candidates"><span class="no">5.</span>回答候補</h3>
+    <h3 id="ex-h-candidates"><span class="no">6.</span>回答候補</h3>
     <div class="ex-ai-body" data-ai-body="candidates"><p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p></div>
   </section>
   <section class="ex-item" data-ex="reason" aria-labelledby="ex-h-reason">
-    <h3 id="ex-h-reason"><span class="no">6.</span>回答の理由</h3>
+    <h3 id="ex-h-reason"><span class="no">7.</span>回答の理由</h3>
     <div class="ex-ai-body" data-ai-body="reason"><p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p></div>
   </section>
   <section class="ex-item" data-ex="pitfalls" aria-labelledby="ex-h-pitfalls">
-    <h3 id="ex-h-pitfalls"><span class="no">7.</span>間違えやすいポイント</h3>
+    <h3 id="ex-h-pitfalls"><span class="no">8.</span>間違えやすいポイント</h3>
     <div class="ex-ai-body" data-ai-body="pitfalls"><p class="ex-pending" data-pending="true">AI接続前：まだ作成されていません</p></div>
   </section>
 
   <p class="ai-note" id="ai-result-note" hidden></p>
+
+  <section class="draft-box" id="draft-box" hidden aria-labelledby="draft-title">
+    <h3 id="draft-title">回答の下書き</h3>
+    <p class="small"><strong>下書きです。</strong>正しいかどうか必ず自分で確かめてください。Classiへの入力と提出は、このアプリではなく、あなたが自分で行います。</p>
+    <textarea id="draft-text" aria-label="回答の下書き（自由に直せます）"></textarea>
+    <div class="review-actions">
+      <button id="copy-draft" type="button">下書きをコピー</button>
+      <button id="draft-reset" type="button" class="secondary">AIの回答から作り直す</button>
+    </div>
+    <p id="draft-status" class="small" role="status" aria-live="polite"></p>
+  </section>
 
   <details class="selftest" id="explain-details" open>
     <summary>AIに解説を頼む質問文を作る（自分でコピーして使う）</summary>
@@ -608,6 +629,27 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
       placeholder="読み取り結果を確認したあと、ここに解説用の質問文が作られます"></textarea>
     <button id="copy-explain">解説用の質問をコピー</button>
     <p id="explain-status" class="small" role="status" aria-live="polite"></p>
+  </details>
+
+  <details class="selftest" id="paste-details" open>
+    <summary>AIの回答を貼り付けて整理する（無料・APIなし）</summary>
+    <ol class="small steps">
+      <li>上の「解説用の質問をコピー」を押す</li>
+      <li>Claudeアプリなどを開き、質問を貼り付けて送る</li>
+      <li>返ってきた回答をすべてコピーし、下の欄に貼り付けて「回答を整理する」を押す</li>
+    </ol>
+    <label class="field">
+      <span>使ったAI</span>
+      <select id="ai-provider"></select>
+    </label>
+    <textarea id="ai-paste" aria-label="AIの回答を貼り付ける欄"
+      placeholder="ここにAIの回答を貼り付けます（この欄の文章は、どこにも送信しません）"></textarea>
+    <div class="review-actions">
+      <button id="ai-paste-apply" type="button">回答を整理する</button>
+      <button id="ai-paste-mock" type="button" class="secondary">模擬データで試す</button>
+      <button id="ai-paste-clear" type="button" class="secondary">貼り付けた回答を消す</button>
+    </div>
+    <p id="ai-paste-status" class="small" role="status" aria-live="polite"></p>
   </details>
 </div>
 
@@ -641,6 +683,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 
 <!-- OCRの精度改善パイプライン（同じサイトのファイル。外部への通信はしない） -->
 <script src="ocr-pipeline.js"></script>
+<script src="ai-assist.js"></script>
 <script type="module">
 /*
  * 安全方針
@@ -1765,11 +1808,14 @@ function buildExplainPrompt() {
 5. 回答候補を示す
 6. 回答の理由を説明する
 7. 間違えやすいポイントを示す
+8. 重要ポイントと、私が確認して使うための回答の下書きを示す
 
 【注意】
 - 文字は画像から機械で読み取っています。【要確認】の行は読み取りに自信がないので、推測で進めず、確認が必要だと伝えてください
 - 選択肢の順番と記号は、元のまま扱ってください
 - 回答の提出や送信はしません。最後は私が自分で判断します
+
+${window.ClassiAI ? window.ClassiAI.answerFormatText() : ""}
 
 【問題文】
 ${stem}
@@ -1874,14 +1920,11 @@ async function refreshAiStatus() {
   renderAi();
 }
 
+/** AIの解説の各項目を表示する（サーバーのAI・貼り付けた回答・模擬データのどれでも同じ形） */
 function renderAiItems() {
-  const parts = {
-    meaning: aiResult?.explanation.meaning,
-    method: aiResult?.explanation.method,
-    candidates: aiResult?.explanation.candidates,
-    reason: aiResult?.explanation.reason,
-    pitfalls: aiResult?.explanation.pitfalls,
-  };
+  const ex = aiResult?.explanation || {};
+  const fromPaste = aiResult && aiResult.source !== "server";
+  const missingText = "（回答に含まれていませんでした）";
   for (const box of document.querySelectorAll("[data-ai-body]")) {
     const key = box.dataset.aiBody;
     box.replaceChildren();
@@ -1891,24 +1934,87 @@ function renderAiItems() {
       const p = el("p", "ex-pending", msg);
       p.dataset.pending = "true";
       box.append(p);
-    } else if (key === "candidates") {
-      const list = parts.candidates;
+    } else if (key === "candidates" || key === "points") {
+      const list = Array.isArray(ex[key]) ? ex[key] : [];
       if (!list.length) {
-        box.append(el("p", "ex-ai-text", "AIは、この問題文だけでは回答候補を決められないと判断しました。"));
+        const text = key === "candidates" && !fromPaste
+          ? "AIは、この問題文だけでは回答候補を決められないと判断しました。" : missingText;
+        box.append(el("p", key === "candidates" && !fromPaste ? "ex-ai-text" : "ex-ai-missing", text));
       } else {
         const ul = el("ul", "ex-ai-list");
         for (const c of list) ul.append(el("li", "", c));
         box.append(ul);
       }
+    } else if (ex[key]) {
+      box.append(el("p", "ex-ai-text", ex[key]));
     } else {
-      box.append(el("p", "ex-ai-text", parts[key] || "（空）"));
+      box.append(el("p", fromPaste ? "ex-ai-missing" : "ex-ai-text", fromPaste ? missingText : "（空）"));
     }
   }
   const note = $("ai-result-note");
   note.hidden = !aiResult;
-  if (aiResult) {
+  if (!aiResult) note.textContent = "";
+  else if (aiResult.source === "mock") {
+    note.textContent = "模擬データです。AIの回答ではなく、正解とは限りません（画面の動きを確かめるためのものです）。";
+  } else if (aiResult.source === "paste") {
+    note.textContent = `${aiResult.providerLabel}の回答を貼り付けて整理しました（通信・料金なし）。AIの回答は間違っていることがあります。答えは必ず自分で確認してください。`;
+  } else {
     note.textContent = `AIが作成した解説です（${aiStatus?.model || "gpt-6-luna"}）。間違っていることがあります。答えは必ず自分で確認してください。今回の推定料金：約${yen(aiResult.costJpy)}（トークン使用量と料金表からの推定）`;
   }
+  renderDraft();
+}
+
+/* ---------------- 貼り付けた回答・模擬データ・回答の下書き（APIなし・無料） ----------------
+ * - どのAIの回答も、ClassiAI.parseAnswer で同じ項目（解き方・重要ポイント・回答候補など）に分ける
+ * - 貼り付けた文章はどこにも送信しない。端末にも保存しない（画面を閉じると消える）
+ * - 下書きは本人が直してコピーするためのもの。Classiへの入力・提出はしない
+ */
+let draftDirty = false; // 下書きを自分で直したか（直したら、自動で上書きしない）
+
+function currentQuestion() {
+  const p = buildAiPayload();
+  return { stem: p.stem, choices: p.choices, afterLines: p.afterLines, type: detectQuestionType(result.value) };
+}
+
+function renderDraft() {
+  const box = $("draft-box");
+  box.hidden = !aiResult;
+  if (!aiResult) {
+    $("draft-text").value = "";
+    $("draft-status").textContent = "";
+    draftDirty = false;
+  }
+}
+
+function fillDraft() {
+  const text = window.ClassiAI ? window.ClassiAI.buildDraft(aiResult?.explanation || {}, currentQuestion()) : "";
+  $("draft-text").value = text;
+  draftDirty = false;
+  $("draft-status").textContent = text ? "" : "回答候補が見つからないため、下書きを作れませんでした。自分で書くこともできます。";
+}
+
+function applyAnswerText(text, providerId) {
+  const status = $("ai-paste-status");
+  status.classList.remove("error");
+  if (!window.ClassiAI) { status.textContent = "AI機能の部品（ai-assist.js）を読み込めませんでした"; status.classList.add("error"); return false; }
+  if (!String(text).trim()) { status.textContent = "先にAIの回答を貼り付けてください"; status.classList.add("error"); return false; }
+  const provider = window.ClassiAI.getProvider(providerId);
+  const parsed = window.ClassiAI.parseAnswer(text);
+  aiResult = { explanation: parsed.explanation, source: provider.id === "mock" ? "mock" : "paste", providerLabel: provider.label.replace(/（.*$/, "") };
+  renderAiItems();
+  fillDraft();
+  const labels = Object.fromEntries(window.ClassiAI.SECTIONS.map((x) => [x.key, x.label]));
+  if (!parsed.ok) {
+    status.textContent = "見出しが見つからなかったため、回答の全文を「解き方・考え方」に入れました。質問文をコピーし直してAIに聞くと、項目に分けやすくなります。";
+  } else if (parsed.missing.length) {
+    status.textContent = `回答を整理しました。見つからなかった項目：${parsed.missing.map((k) => labels[k]).join("、")}`;
+  } else {
+    status.textContent = "回答を整理しました。すべての項目が見つかりました。";
+  }
+  if (parsed.truncated) status.textContent += "（長すぎるため、最初の20,000文字だけ使いました）";
+  log(`${aiResult.source === "mock" ? "模擬データ" : provider.label + "の回答"}を整理（見つかった項目：${parsed.found.length}）`);
+  $("sec-explain").scrollIntoView({ block: "start" });
+  return true;
 }
 
 function renderAi() {
@@ -2008,7 +2114,8 @@ $("ai-send").addEventListener("click", async () => {
     try { json = await res.json(); } catch { /* 下で処理 */ }
     if (json?.status) aiStatus = json.status;
     if (res.ok && json?.ok && json.explanation) {
-      aiResult = { explanation: json.explanation, costJpy: json.costJpy };
+      aiResult = { explanation: json.explanation, costJpy: json.costJpy, source: "server" };
+      fillDraft();
       setAiMessage("AIの解説を受け取りました。");
       log(`AIの解説を受信（推定${yen(json.costJpy)}）`);
     } else {
@@ -2419,6 +2526,65 @@ $("copy-explain").addEventListener("click", async () => {
   }
 });
 
+/* 貼り付け・模擬データ・下書きの操作 */
+const providerSelect = $("ai-provider");
+for (const p of (window.ClassiAI ? window.ClassiAI.listProviders() : []).filter((x) => x.mode === "manual")) {
+  const o = document.createElement("option");
+  o.value = p.id;
+  o.textContent = p.label;
+  providerSelect.append(o);
+}
+
+$("ai-paste-apply").addEventListener("click", () => {
+  applyAnswerText($("ai-paste").value, providerSelect.value);
+});
+
+$("ai-paste-mock").addEventListener("click", async () => {
+  if (!result.value.trim()) {
+    $("ai-paste-status").textContent = "先に画像を読み取るか、文章を入力してください";
+    return;
+  }
+  const mock = window.ClassiAI.getProvider("mock");
+  const q = currentQuestion();
+  const text = await mock.ask(window.ClassiAI.buildPrompt(q), q);
+  $("ai-paste").value = text;
+  applyAnswerText(text, "mock");
+});
+
+$("ai-paste-clear").addEventListener("click", () => {
+  $("ai-paste").value = "";
+  $("ai-paste-status").textContent = "貼り付けた回答を消しました";
+  if (aiResult && aiResult.source !== "server") {
+    aiResult = null;
+    renderAi();
+  }
+  log("貼り付けた回答を消去");
+});
+
+$("draft-text").addEventListener("input", () => { draftDirty = true; });
+
+$("draft-reset").addEventListener("click", () => {
+  if (draftDirty && !confirm("自分で直した下書きを消して、AIの回答から作り直します。よろしいですか？")) return;
+  fillDraft();
+  log("回答の下書きを作り直し");
+});
+
+$("copy-draft").addEventListener("click", async () => {
+  const box = $("draft-text");
+  const st = $("draft-status");
+  if (!box.value.trim()) { st.textContent = "下書きが空です"; return; }
+  try {
+    await navigator.clipboard.writeText(box.value);
+    st.textContent = "下書きをコピーしました。Classiに入力する前に、内容を必ず確認してください（提出は自分で行います）";
+    log("回答の下書きをコピー");
+  } catch {
+    box.focus();
+    box.select();
+    st.textContent = "文章を選択しました。手動でコピーしてください";
+    log("回答の下書きを選択（手動コピー）");
+  }
+});
+
 $("clear-all").addEventListener("click", () => {
   if (!confirm("画像・読み取り結果・整理したカード・質問文をすべて消去します。よろしいですか？")) return;
   image.value = "";
@@ -2426,6 +2592,8 @@ $("clear-all").addEventListener("click", () => {
   prompt.value = "";
   explainPrompt.value = "";
   explainStatus.textContent = "";
+  $("ai-paste").value = "";
+  $("ai-paste-status").textContent = "";
   selftestResult.replaceChildren();
   items = [];
   editingId = null;

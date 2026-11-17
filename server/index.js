@@ -96,9 +96,9 @@ function createServer(config, { fetchImpl, now } = {}) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff" });
         return res.end(html);
       }
-      if (config.serveStatic && req.method === "GET" && url.pathname === "/ocr-pipeline.js") {
-        // OCRの改善処理（画面と一緒に配る。ないと従来のOCRになる）
-        const js = fs.readFileSync(path.join(__dirname, "..", "ocr-pipeline.js"), "utf8");
+      if (config.serveStatic && req.method === "GET" && (url.pathname === "/ocr-pipeline.js" || url.pathname === "/ai-assist.js")) {
+        // OCRの改善処理・AIの部品（画面と一緒に配る。決まった2つのファイルだけ）
+        const js = fs.readFileSync(path.join(__dirname, "..", url.pathname.slice(1)), "utf8");
         res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "X-Content-Type-Options": "nosniff" });
         return res.end(js);
       }

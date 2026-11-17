@@ -36,14 +36,14 @@ test.describe("AI解説画面（AI接続前）", () => {
     await expect(page.locator("#ai-status")).toContainText("AIはまだ接続されていません");
     await show(page);
     const pending = page.locator('#sec-explain [data-pending="true"]');
-    await expect(pending).toHaveCount(5);
+    await expect(pending).toHaveCount(6);
     for (const t of await pending.allTextContents()) expect(t).toContain("AI接続前：まだ作成されていません");
   });
 
-  test("7つの項目が順番に用意されている", async ({ page }) => {
+  test("8つの項目が順番に用意されている", async ({ page }) => {
     const heads = await page.locator("#sec-explain .ex-item h3").allTextContents();
     expect(heads.map((h) => h.replace(/^\d+\./, ""))).toEqual([
-      "読み取った問題", "問題の種類", "問題の意味", "解き方・考え方", "回答候補", "回答の理由", "間違えやすいポイント",
+      "読み取った問題", "問題の種類", "問題の意味", "解き方・考え方", "重要ポイント", "回答候補", "回答の理由", "間違えやすいポイント",
     ]);
   });
 

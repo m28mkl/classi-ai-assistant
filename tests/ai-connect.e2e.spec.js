@@ -77,7 +77,7 @@ test.describe("AI未接続（接続先が空）", () => {
     await open(page, { endpoint: "" });
     await expect(page.locator("#sec-explain h2 .badge")).toHaveText("AI接続前");
     await expect(page.locator("#ai-controls")).toBeHidden();
-    await expect(page.locator('[data-ai-body] [data-pending="true"]')).toHaveCount(5);
+    await expect(page.locator('[data-ai-body] [data-pending="true"]')).toHaveCount(6);
     await expect(page.locator('[data-ai-body="meaning"]')).toContainText("AI接続前：まだ作成されていません");
     await page.click("#analyze");
     await expect(page.locator("#tasks .task").first()).toBeVisible();
@@ -256,7 +256,7 @@ test.describe("エラー時の安全な停止", () => {
     const msg = page.locator("#ai-message");
     await expect(msg).toContainText("AIとの通信でエラーが発生しました");
     await expect(msg).toHaveClass(/error/);
-    await expect(page.locator('[data-ai-body] [data-pending="true"]')).toHaveCount(5);
+    await expect(page.locator('[data-ai-body] [data-pending="true"]')).toHaveCount(6);
     await expect(page.locator("#ai-result-note")).toBeHidden();
     expect(posts).toHaveLength(1);
     // AIなしの機能は使える
