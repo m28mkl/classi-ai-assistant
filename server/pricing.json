@@ -1,0 +1,14 @@
+{
+  "updated_at": "2026-11-16",
+  "source": "https://developers.openai.com/docs/models/gpt-6-luna",
+  "usd_jpy": 160,
+  "usd_jpy_note": "1ドルが何円か。実際のレートより高めにしておくと、推定額が安全側（多め）になります。定期的に見直してください。",
+  "stale_after_days": 60,
+  "models": {
+    "gpt-6-luna": {
+      "input_per_1m_usd": 0.10,
+      "cached_input_per_1m_usd": 0.01,
+      "output_per_1m_usd": 0.50
+    }
+  }
+}

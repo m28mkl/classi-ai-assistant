@@ -1,0 +1,17 @@
+{
+  "_note": "架空の問題画面（classi-like-q01.png。tests/fixtures/make-classi-like-sample.js で作成したオリジナル）のOCR評価用の正解データ。選択肢の文法的な正誤は評価の対象外で、画面に表示されているとおりに記載している。",
+  "title": "練習問題_関係代名詞と前置詞02",
+  "instruction": "次の問いに答えなさい。",
+  "subNumber": "01",
+  "subInstruction": "次の英文を指示にしたがって書きかえるとき、（ ）に入るものを選びなさい。",
+  "english": "This is the park. I played in it last week.",
+  "direction": "（一つの文に）",
+  "rewrite": "This is the park (     ) last week.",
+  "choices": [
+    { "label": "ア", "text": "in I played which" },
+    { "label": "イ", "text": "which in I played" },
+    { "label": "ウ", "text": "in which I played" },
+    { "label": "エ", "text": "I played which" }
+  ],
+  "excludedUi": ["9:41", "11月17日", "03:28", "答え合わせ", "メモ"]
+}

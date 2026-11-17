@@ -177,3 +177,306 @@ test.describe("動作チェックの判定 judgeSelftest", () => {
     expect(await judge("English Homework 11 20")).toBe(false);
   });
 });
+
+/* ======================= OCR精度改善（ocr-pipeline.js）の単体テスト ======================= */
+const O = (fn, ...args) => page.evaluate(([f, a]) => window.ClassiOcr[f](...a), [fn, args]);
+
+test.describe("英語の後処理 fixEnglish（I・1・l の取り違え、空白、句読点）", () => {
+  test("英単語に挟まれた単独の「|」「l」は代名詞の I にし、直した箇所を記録する", async () => {
+    const r = await O("fixEnglish", "to | spoke whom");
+    expect(r.text).toBe("to I spoke whom");
+    expect(r.changes[0]).toMatchObject({ from: "|", to: "I" });
+    expect((await O("fixEnglish", "whom l spoke to")).text).toBe("whom I spoke to");
+  });
+
+  test("「1」は、代名詞の I が来る位置（文頭・to/that/whom などの後）でだけ I にする", async () => {
+    expect((await O("fixEnglish", "1 spoke to him yesterday.")).text).toBe("I spoke to him yesterday.");
+    expect((await O("fixEnglish", "He is the man. 1 spoke to him.")).text).toBe("He is the man. I spoke to him.");
+    expect((await O("fixEnglish", "to 1 spoke whom")).text).toBe("to I spoke whom");
+  });
+
+  test("「1」を無条件に I にしない（数字として正しい可能性がある所は直さずに「要確認」として記録）", async () => {
+    const r = await O("fixEnglish", "Read page 1 of the book.");
+    expect(r.text).toBe("Read page 1 of the book.");
+    expect(r.changes.some((c) => c.uncertain && c.from === "1" && c.to === "1")).toBe(true);
+    expect((await O("fixEnglish", "Question 1 2 3")).text).toBe("Question 1 2 3");
+    expect((await O("fixEnglish", "p.10 and 01")).text).toBe("p.10 and 01");
+  });
+
+  test("I が次の語とくっついた「lspoke」「1spoke」は、Tesseract の辞書にない語のときだけ分ける（要確認）", async () => {
+    const r = await O("fixEnglish", "whom lspoke to", [{ text: "lspoke", in_dictionary: false }]);
+    expect(r.text).toBe("whom I spoke to");
+    expect(r.changes[0].uncertain).toBe(true);
+    // 辞書にある語（late など）や、辞書の情報がない場合は分けない
+    expect((await O("fixEnglish", "I was late", [{ text: "late", in_dictionary: true }])).text).toBe("I was late");
+    expect((await O("fixEnglish", "whom lspoke to")).text).toBe("whom lspoke to");
+  });
+
+  test("単語の途中の大文字 I は、辞書にない語のときだけ小文字の l にする", async () => {
+    expect((await O("fixEnglish", "heIlo world", [{ text: "heIlo", in_dictionary: false }])).text).toBe("hello world");
+    expect((await O("fixEnglish", "iPhone", [{ text: "iPhone", in_dictionary: false }])).text).toBe("iPhone");
+  });
+
+  test("句読点の前の空白を消し、文末の句読点の後に空白を入れ、連続する空白を1つにする", async () => {
+    expect((await O("fixEnglish", "He is the man .I spoke  to him yesterday .")).text).toBe("He is the man. I spoke to him yesterday.");
+    expect((await O("fixEnglish", "He is the man ( _ ) yesterday.")).text).toBe("He is the man (     ) yesterday.");
+  });
+
+  test("選択肢の英文の語順・文法は変えない（OCRの評価用の文をそのまま保つ）", async () => {
+    for (const t of ["to I spoke whom", "to I spoke", "whom I spoke to", "I spoke to whom"]) {
+      expect((await O("fixEnglish", t)).text).toBe(t);
+    }
+  });
+});
+
+test.describe("日本語の後処理 fixJapanese", () => {
+  test("日本語の文字の間の空白を取り除き、半角の括弧・読点を全角にそろえる", async () => {
+    expect(await O("fixJapanese", "次 の 英文 を 書きかえる とき , ( _ ) に 適する")).toBe("次の英文を書きかえるとき，（ ）に適する");
+    expect(await O("fixJapanese", "(一 つ の 文 に )")).toBe("（一つの文に）");
+    expect(await O("fixJapanese", "小 問 01")).toBe("小問01");
+  });
+
+  test("日付と時刻の間の空白は残す", async () => {
+    expect(await O("fixJapanese", "2026 年 11 月 20 日 17:00")).toBe("2026年11月20日 17:00");
+  });
+});
+
+test.describe("文字種の判定と、行の分割 splitLineChunks", () => {
+  test("日本語・英語・記号を判定する", async () => {
+    expect(await O("scriptClass", "次の問い")).toBe("ja");
+    expect(await O("scriptClass", "spoke")).toBe("latin");
+    expect(await O("scriptClass", "(01)")).toBe("neutral");
+  });
+
+  test("英文の後ろの日本語の（ ）書きは、別の部分（日本語）として分け、順番を保つ", async () => {
+    const w = (text, x0, x1) => ({ text, bbox: { x0, x1, y0: 0, y1: 30 } });
+    const [line] = await O("splitLineChunks", [{ bbox: { x0: 0, x1: 900, y0: 0, y1: 30 }, words: [w("He", 0, 30), w("is", 40, 60), w("yesterday.", 70, 200), w("(一つの文に)", 260, 420)] }]);
+    expect(line.chunks.map((c) => [c.cls, c.text])).toEqual([["latin", "He is yesterday."], ["ja", "(一つの文に)"]]);
+  });
+
+  test("行頭で大きく離れた1文字は、選択肢の記号の候補として独立させる（「エ」が英字の I と読まれても英文に混ぜない）", async () => {
+    const w = (text, x0, x1) => ({ text, bbox: { x0, x1, y0: 0, y1: 30 } });
+    const [line] = await O("splitLineChunks", [{ bbox: { x0: 0, x1: 400, y0: 0, y1: 30 }, words: [w("I", 0, 20), w("I", 60, 66), w("spoke", 76, 150)] }]);
+    expect(line.chunks.map((c) => [c.cls, c.text])).toEqual([["ja", "I"], ["latin", "I spoke"]]);
+    // 普通の英文の「I spoke」（語の間隔が小さい）は分けない
+    const [line2] = await O("splitLineChunks", [{ bbox: { x0: 0, x1: 400, y0: 0, y1: 30 }, words: [w("I", 0, 8), w("spoke", 18, 90)] }]);
+    expect(line2.chunks.map((c) => c.text)).toEqual(["I spoke"]);
+  });
+});
+
+test.describe("問題の構造 parseQuestion（問題文・英文・選択肢）", () => {
+  const LINES = [
+    "練習問題_関係代名詞と前置詞01", "次の問いに答えなさい。", "小問01",
+    "次の英文を指示にしたがって書きかえるとき，（ ）に適するものを選びなさい。",
+    "He is the man. I spoke to him yesterday. （一つの文に）", "=He is the man (     ) yesterday.", "選択肢",
+    "ア to I spoke whom", "イ to I spoke", "ウ whom I spoke to", "工 I spoke to whom",
+  ].map((text) => ({ text }));
+
+  test("タイトル・問題文・小問・英文・指示・書き換え・選択肢に分ける", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.title).toBe("練習問題_関係代名詞と前置詞01");
+    expect(q.instruction).toBe("次の問いに答えなさい。");
+    expect(q.subNumber).toBe("01");
+    expect(q.subInstruction).toBe("次の英文を指示にしたがって書きかえるとき，（ ）に適するものを選びなさい。");
+    expect(q.english).toBe("He is the man. I spoke to him yesterday.");
+    expect(q.direction).toBe("（一つの文に）");
+    expect(q.rewrite).toBe("He is the man (     ) yesterday.");
+  });
+
+  test("選択肢はア・イ・ウ・エの順番のまま、文章も変えずに保つ", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.choices.map((c) => [c.label, c.text])).toEqual([
+      ["ア", "to I spoke whom"], ["イ", "to I spoke"], ["ウ", "whom I spoke to"], ["エ", "I spoke to whom"],
+    ]);
+  });
+
+  test("取り違えやすい記号（工→エ）や行頭の「=」（→⇒）は、判断した内容を「要確認」として記録する", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.choices[3]).toMatchObject({ label: "エ", labelRead: "工", labelUncertain: true });
+    expect(q.notes.some((n) => n.uncertain && n.from === "=" && n.to === "⇒")).toBe(true);
+  });
+
+  test("問題文と選択肢を混同しない（英文・問題文に選択肢が入らず、選択肢に問題文が入らない）", async () => {
+    const q = await O("parseQuestion", LINES);
+    for (const c of q.choices) {
+      expect(q.english).not.toContain(c.text);
+      expect(q.instruction + q.subInstruction).not.toContain(c.text);
+      expect(c.text).not.toMatch(/[\p{Script=Han}\p{Script=Hiragana}]/u);
+    }
+    expect(q.other).toEqual([]);
+  });
+
+  test("選択肢の記号の順番が想定と違っても並べ替えず、そのまま「要確認」にする", async () => {
+    const q = await O("parseQuestion", ["選択肢", "ア one", "ウ three", "イ two"].map((text) => ({ text })));
+    expect(q.choices.map((c) => c.label)).toEqual(["ア", "ウ", "イ"]);
+    expect(q.notes.filter((n) => n.uncertain).length).toBe(2);
+  });
+
+  test("構造から読み取り結果の文章に戻すと、元の順番になる", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(await O("formatQuestion", q)).toBe([
+      "練習問題_関係代名詞と前置詞01", "次の問いに答えなさい。", "小問01",
+      "次の英文を指示にしたがって書きかえるとき，（ ）に適するものを選びなさい。",
+      "He is the man. I spoke to him yesterday. （一つの文に）", "⇒He is the man (     ) yesterday.", "選択肢",
+      "ア to I spoke whom", "イ to I spoke", "ウ whom I spoke to", "エ I spoke to whom",
+    ].join("\n"));
+  });
+
+  test("英文の途中の不自然な改行をつなげる（文末記号で終わらず、次の行が小文字で始まる場合だけ）", async () => {
+    expect(await O("joinEnglishLines", ["He is the man", "who spoke to me.", "I know him."])).toBe("He is the man who spoke to me.\nI know him.");
+  });
+});
+
+test.describe("OCRの改善：1行に並んだ選択肢・「工」・次の問題（ocr-pipeline.js）", () => {
+  // iPad の実機テスト（架空の問題画像）で起きた読み取り結果の再現
+  const LINES = [
+    "2（　）に入る適切な語を、ア〜エから1つ選びなさい。",
+    "This is the book (     ) I bought yesterday.",
+    "ア who イ which ウ where 工 when",
+    "3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。",
+    "(1) He don’t like tomatoes. (     )",
+    "(2) She plays the piano very well. (     )",
+  ].map((text) => ({ text }));
+
+  test("1行に並んだ選択肢を4つに分け、「工」は順番から「エ」（要確認）にする", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.choices.map((c) => [c.label, c.text])).toEqual([["ア", "who"], ["イ", "which"], ["ウ", "where"], ["エ", "when"]]);
+    expect(q.choices[3]).toMatchObject({ labelRead: "工", labelUncertain: true });
+  });
+
+  test("次の問題は「next」に分け、問題文・選択肢に混ぜない（選択肢も2回出さない）", async () => {
+    const q = await O("parseQuestion", LINES);
+    expect(q.title).toBe("2（　）に入る適切な語を、ア〜エから1つ選びなさい。");
+    expect(q.instruction).toBe("This is the book (     ) I bought yesterday.");
+    expect(q.next).toEqual(LINES.slice(3).map((l) => l.text));
+    expect(q.other).toEqual([]);
+    const text = await O("formatQuestion", q);
+    expect(text.split("\n")).toEqual([
+      "2（　）に入る適切な語を、ア〜エから1つ選びなさい。", "This is the book (     ) I bought yesterday.",
+      "選択肢", "ア who", "イ which", "ウ where", "エ when",
+      "3 次の英文が正しければ〇、誤っていれば X を（ ）に書きなさい。", "(1) He don’t like tomatoes. (     )", "(2) She plays the piano very well. (     )",
+    ]);
+    expect(text.match(/ア who/g)).toHaveLength(1);
+  });
+
+  test("splitInlineChoices：最後の選択肢に続く次の問題を切り分ける。選択肢でない行は分けない", async () => {
+    expect(await O("splitInlineChoices", "ア who イ which ウ where 工 when 3 次の英文を書きなさい。"))
+      .toEqual(["ア who", "イ which", "ウ where", "工 when", "3 次の英文を書きなさい。"]);
+    expect(await O("splitInlineChoices", "ア. cat イ. dog")).toEqual(["ア. cat", "イ. dog"]);
+    expect(await O("splitInlineChoices", "ア 東京")).toBeNull();
+    expect(await O("splitInlineChoices", "アメリカ イギリス")).toBeNull();
+    expect(await O("splitInlineChoices", "ア〜エから選びなさい")).toBeNull();
+    expect(await O("splitInlineChoices", "page 3 of ア")).toBeNull();
+  });
+
+  test("isQuestionStart：問題番号の行だけを、次の問題の始まりとみなす", async () => {
+    for (const t of ["3 次の英文が正しければ〇を書きなさい。", "問3 次の文を読みなさい。", "【3】選びなさい。", "第2問"]) expect(await O("isQuestionStart", t), t).toBe(true);
+    for (const t of ["(1) He don’t like tomatoes.", "3+4", "2026年11月20日まで", "11/20 提出", "This is the book."]) expect(await O("isQuestionStart", t), t).toBe(false);
+  });
+
+  test("小問・選択肢の見出しがある画面（今までの形）は、今までどおり", async () => {
+    const q = await O("parseQuestion", ["タイトル", "次の問いに答えなさい。", "小問01", "選びなさい。", "選択肢", "ア one", "イ two"].map((text) => ({ text })));
+    expect(q.title).toBe("タイトル");
+    expect(q.instruction).toBe("次の問いに答えなさい。");
+    expect(q.choices.map((c) => c.text)).toEqual(["one", "two"]);
+    expect(q.next).toEqual([]);
+  });
+});
+
+test.describe("最終レビューの修正（ocr-pipeline.js）：数字で始まる行・日本語の選択肢", () => {
+  test("isQuestionStart：数字のすぐ後に空白か点があるときだけ問題番号とみなす", async () => {
+    for (const t of ["3 次の英文を書きなさい。", "3．次の文を読みなさい。", "問3 選びなさい"]) expect(await O("isQuestionStart", t), t).toBe(true);
+    for (const t of ["2つ選びなさい。", "3人の意見を読み、答えなさい。", "3.5cmの長さを求めなさい。"]) expect(await O("isQuestionStart", t), t).toBe(false);
+  });
+
+  test("「2つ選びなさい。」の折り返しで、問題を切り分けない", async () => {
+    const q = await O("parseQuestion", ["問1 次の中から正しいものを", "2つ選びなさい。", "ア 東京", "イ 大阪"].map((text) => ({ text })));
+    expect(q.next).toEqual([]);
+    expect(q.instruction).toBe("2つ選びなさい。");
+    expect(q.choices.map((c) => c.text)).toEqual(["東京", "大阪"]);
+  });
+
+  test("fixJapanese：1行に並んだ日本語の選択肢の区切りを残す（文字の間の空白は消す）", async () => {
+    expect(await O("fixJapanese", "ア 東 京 イ 大 阪 ウ 名 古 屋 工 福 岡")).toBe("ア 東京 イ 大阪 ウ 名古屋 工 福岡");
+    expect(await O("fixJapanese", "ア．東京 イ．大阪")).toBe("ア．東京 イ．大阪");
+    expect(await O("fixJapanese", "保 護 者 会 の お 知 ら せ")).toBe("保護者会のお知らせ");
+  });
+
+  test("日本語の選択肢が1行に並んだ読み取り結果から、4つの選択肢を作る（「工」は「エ」・要確認）", async () => {
+    const line = await O("fixJapanese", "ア 東 京 イ 大 阪 ウ 名 古 屋 工 福 岡");
+    const q = await O("parseQuestion", ["問1 首都を選びなさい。", line].map((text) => ({ text })));
+    expect(q.choices.map((c) => [c.label, c.text])).toEqual([["ア", "東京"], ["イ", "大阪"], ["ウ", "名古屋"], ["エ", "福岡"]]);
+    expect(q.choices[3]).toMatchObject({ labelRead: "工", labelUncertain: true });
+  });
+});
+
+test.describe("画面構造の解析 analyzeLayout（固定座標に頼らない）", () => {
+  /** Classi に似た画面を指定した大きさで描き、解析結果を返す */
+  const layoutOf = (w, h) => page.evaluate(([w, h]) => {
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const x = c.getContext("2d");
+    const u = h / 100; // 画面の高さに対する割合で描く
+    x.fillStyle = "#fff"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#00a0e9"; x.fillRect(0, 0, w, 9 * u);                 // 上部のバー
+    x.fillStyle = "#111"; x.fillRect(w * 0.2, 9 * u, w * 0.6, 6 * u);     // 動画プレイヤー
+    x.fillStyle = "#333"; x.font = `${Math.round(2.4 * u)}px sans-serif`;
+    for (let i = 0; i < 6; i++) x.fillText("Text line " + i + " 本文", w * 0.2, 22 * u + i * 6 * u);
+    x.fillStyle = "#f0f0f0"; x.fillRect(0, 70 * u, w, 13 * u);             // 回答欄（グレー）
+    x.fillStyle = "#2680f0"; x.fillRect(w * 0.3, 85 * u, w * 0.45, 5 * u); // 答え合わせボタン
+    x.fillStyle = "#00a0e9"; x.fillRect(0, 92 * u, w, 8 * u);             // 下部のバー
+    const lay = ClassiOcr.analyzeLayout(x.getImageData(0, 0, w, h));
+    return { content: lay.content, lines: lay.lines.length, h };
+  }, [w, h]);
+
+  for (const [w, h] of [[2360, 1640], [1180, 820], [1640, 2360]]) {
+    test(`${w}×${h} の画面でも、バー・動画・回答欄・ボタンを除いた本文の6行だけを検出する`, async () => {
+      const r = await layoutOf(w, h);
+      expect(r.lines).toBe(6);
+      expect(r.content.y).toBeGreaterThanOrEqual(Math.floor(h * 0.15)); // 動画プレイヤーより下
+      expect(r.content.y + r.content.h).toBeLessThanOrEqual(Math.ceil(h * 0.70)); // 回答欄（グレー）より上
+    });
+  }
+
+  test("UIのない普通の画像は、全体を本文として扱う", async () => {
+    const r = await page.evaluate(() => {
+      const c = document.createElement("canvas"); c.width = 600; c.height = 200;
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 600, 200);
+      x.fillStyle = "#000"; x.font = "30px sans-serif"; x.fillText("数学 課題 11/30", 20, 60); x.fillText("English", 20, 140);
+      const lay = ClassiOcr.analyzeLayout(x.getImageData(0, 0, 600, 200));
+      return { excluded: lay.excluded.length, lines: lay.lines.length };
+    });
+    expect(r).toEqual({ excluded: 0, lines: 2 });
+  });
+});
+
+test.describe("下線（_）の検出 findUnderscoreGaps", () => {
+  const detect = (draw) => page.evaluate((drawSrc) => {
+    const c = document.createElement("canvas"); c.width = 400; c.height = 60;
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 400, 60);
+    x.fillStyle = "#000";
+    // 2つの「語」（黒い四角）と、その間の描画
+    x.fillRect(20, 15, 60, 30); x.fillRect(130, 15, 60, 30);
+    new Function("x", drawSrc)(x);
+    const words = [{ srcRect: { x: 20, y: 15, w: 60, h: 30 } }, { srcRect: { x: 130, y: 15, w: 60, h: 30 } }];
+    return ClassiOcr.findUnderscoreGaps(x.getImageData(0, 0, 400, 60), words, 15, 45, 0, 399);
+  }, draw);
+
+  test("語の間の下側の細い横線は下線と判断する", async () => {
+    expect(await detect("x.fillRect(88, 44, 34, 1);")).toEqual([0]);
+  });
+  test("上に文字が続いている線（「し」の下のカーブのような形）や、線がない隙間は下線にしない", async () => {
+    expect(await detect("x.fillRect(88, 44, 34, 1); x.fillRect(88, 20, 2, 25);")).toEqual([]);
+    expect(await detect("")).toEqual([]);
+  });
+  test("行の中ほどの横線（漢字の「一」など）は下線にしない", async () => {
+    expect(await detect("x.fillRect(88, 29, 34, 2);")).toEqual([]);
+  });
+});
+
+test.describe("修正前と修正後の比較 diffTokens", () => {
+  test("英単語は単語ごと、日本語は1文字ごとに比べ、空白の違いは無視する", async () => {
+    const ops = await O("diffTokens", "to | spoke\n次 の 問い", "to I spoke\n次の問い");
+    expect(ops.filter((o) => o.op !== "same")).toEqual([{ op: "del", text: "|" }, { op: "add", text: "I" }]);
+  });
+});

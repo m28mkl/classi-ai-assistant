@@ -7,10 +7,13 @@
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=ipad-air-portrait --project=ipad-air-landscape",
+    "test:splitview": "playwright test --project=split-view",
     "test:ocr": "playwright test --project=ocr",
     "test:ocr:online": "OCR_ONLINE=1 playwright test --project=ocr",
     "check:syntax": "node tests/check-syntax.js",
-    "serve": "node tests/server.js"
+    "serve": "node tests/server.js",
+    "server": "node server/index.js",
+    "test:server": "playwright test --project=ai-server"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

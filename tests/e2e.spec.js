@@ -261,10 +261,11 @@ test.describe("安全性", () => {
     expect(await page.evaluate(() => !!window.__pwned || !!document.querySelector("#tasks img"))).toBe(false);
   });
 
-  test("AIに接続せずClassiも操作しないことが画面に明記されている", async ({ page }) => {
+  test("AIへの送信は確認したときだけ・Classiは操作しないことが画面に明記されている", async ({ page }) => {
     const scope = page.locator("#scope");
     await expect(scope).toBeVisible();
-    await expect(scope).toContainText("AIには接続しません");
+    await expect(scope).toContainText("AIへの送信は、あなたが確認して「送る」を押したときだけです");
+    await expect(scope).toContainText("AIが未接続のときは何も送りません");
     await expect(scope).toContainText("Classiを操作しません");
   });
 
