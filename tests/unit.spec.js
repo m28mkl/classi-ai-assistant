@@ -383,6 +383,33 @@ test.describe("OCRの改善：1行に並んだ選択肢・「工」・次の問�
   });
 });
 
+test.describe("最終レビューの修正（ocr-pipeline.js）：数字で始まる行・日本語の選択肢", () => {
+  test("isQuestionStart：数字のすぐ後に空白か点があるときだけ問題番号とみなす", async () => {
+    for (const t of ["3 次の英文を書きなさい。", "3．次の文を読みなさい。", "問3 選びなさい"]) expect(await O("isQuestionStart", t), t).toBe(true);
+    for (const t of ["2つ選びなさい。", "3人の意見を読み、答えなさい。", "3.5cmの長さを求めなさい。"]) expect(await O("isQuestionStart", t), t).toBe(false);
+  });
+
+  test("「2つ選びなさい。」の折り返しで、問題を切り分けない", async () => {
+    const q = await O("parseQuestion", ["問1 次の中から正しいものを", "2つ選びなさい。", "ア 東京", "イ 大阪"].map((text) => ({ text })));
+    expect(q.next).toEqual([]);
+    expect(q.instruction).toBe("2つ選びなさい。");
+    expect(q.choices.map((c) => c.text)).toEqual(["東京", "大阪"]);
+  });
+
+  test("fixJapanese：1行に並んだ日本語の選択肢の区切りを残す（文字の間の空白は消す）", async () => {
+    expect(await O("fixJapanese", "ア 東 京 イ 大 阪 ウ 名 古 屋 工 福 岡")).toBe("ア 東京 イ 大阪 ウ 名古屋 工 福岡");
+    expect(await O("fixJapanese", "ア．東京 イ．大阪")).toBe("ア．東京 イ．大阪");
+    expect(await O("fixJapanese", "保 護 者 会 の お 知 ら せ")).toBe("保護者会のお知らせ");
+  });
+
+  test("日本語の選択肢が1行に並んだ読み取り結果から、4つの選択肢を作る（「工」は「エ」・要確認）", async () => {
+    const line = await O("fixJapanese", "ア 東 京 イ 大 阪 ウ 名 古 屋 工 福 岡");
+    const q = await O("parseQuestion", ["問1 首都を選びなさい。", line].map((text) => ({ text })));
+    expect(q.choices.map((c) => [c.label, c.text])).toEqual([["ア", "東京"], ["イ", "大阪"], ["ウ", "名古屋"], ["エ", "福岡"]]);
+    expect(q.choices[3]).toMatchObject({ labelRead: "工", labelUncertain: true });
+  });
+});
+
 test.describe("画面構造の解析 analyzeLayout（固定座標に頼らない）", () => {
   /** Classi に似た画面を指定した大きさで描き、解析結果を返す */
   const layoutOf = (w, h) => page.evaluate(([w, h]) => {

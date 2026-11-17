@@ -522,7 +522,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 
 <div class="card" id="sec-result">
   <h2>② 読み取った情報の確認・修正</h2>
-  <textarea id="result"
+  <textarea id="result" autocapitalize="off" autocorrect="off" spellcheck="false"
     placeholder="ここにOCR結果が表示されます（手で直接修正できます）"></textarea>
   <div id="review" aria-live="polite"></div>
 <details class="review ocr-detail" id="ocr-review" hidden open>
@@ -629,7 +629,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
   <section class="draft-box" id="draft-box" hidden aria-labelledby="draft-title">
     <h3 id="draft-title">回答の下書き</h3>
     <p class="small"><strong>下書きです。</strong>正しいかどうか必ず自分で確かめてください。Classiへの入力と提出は、このアプリではなく、あなたが自分で行います。</p>
-    <textarea id="draft-text" aria-label="回答の下書き（自由に直せます）"></textarea>
+    <textarea id="draft-text" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="回答の下書き（自由に直せます）"></textarea>
     <div class="review-actions">
       <button id="copy-draft" type="button">下書きをコピー</button>
       <button id="draft-reset" type="button" class="secondary">AIの回答から作り直す</button>
@@ -657,7 +657,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
       <span>使ったAI</span>
       <select id="ai-provider"></select>
     </label>
-    <textarea id="ai-paste" aria-label="AIの回答を貼り付ける欄"
+    <textarea id="ai-paste" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="AIの回答を貼り付ける欄"
       placeholder="ここにAIの回答を貼り付けます（この欄の文章は、どこにも送信しません）"></textarea>
     <div class="review-actions">
       <button id="ai-paste-apply" type="button">回答を整理する</button>
@@ -1458,9 +1458,25 @@ const JA_GAP = new RegExp(`([${JA}])[ \\t\\u3000]+(?=[${JA}])`, "gu");
 const JA_CHAR = new RegExp(`[${JA}]`, "gu");
 const NUM_UNIT_GAP = /(\d)[ \t\u3000]+(?=[年月日時分])|([年月])[ \t\u3000]+(?=\d)/g;
 function cleanupOcrLine(line) {
+  // 1行に並んだ選択肢（「ア 東 京 イ 大 阪 …」）は、記号の前後の空白まで消さないよう、選択肢ごとに整える
+  const pos = inlineChoicePositions(line.trim());
+  if (pos.length) {
+    const t = line.trim();
+    return pos.map((p, k) => {
+      const piece = t.slice(p, k + 1 < pos.length ? pos[k + 1] : t.length).trim();
+      const m = piece.match(/^(\S)([.．、:：)）]?)[\s　]*(.*)$/u);
+      return m[2] ? m[1] + m[2] + cleanupOcrLineCore(m[3], spacedLine(t)) : `${m[1]} ${cleanupOcrLineCore(m[3], spacedLine(t))}`;
+    }).join(" ");
+  }
+  return cleanupOcrLineCore(line, spacedLine(line));
+}
+/** OCR特有の「1文字ずつ空白が入った行」か（行全体で判断する） */
+function spacedLine(line) {
   const gaps = (line.match(JA_GAP) || []).length;
   const chars = (line.match(JA_CHAR) || []).length;
-  const spaced = gaps >= 3 && gaps / Math.max(chars, 1) >= 0.3;
+  return gaps >= 3 && gaps / Math.max(chars, 1) >= 0.3;
+}
+function cleanupOcrLineCore(line, spaced) {
   return (spaced ? line.replace(JA_GAP, "$1") : line).replace(NUM_UNIT_GAP, "$1$2").trim();
 }
 function cleanupOcrText(text) {
@@ -1598,7 +1614,8 @@ function isQuestionStart(line) {
   const t = String(line || "").trim();
   if (/^(?:問|第)\s*[0-9０-９]{1,2}(?![0-9０-９])/.test(t)) return true;
   if (/^(?:大問|[【［\[〔]\s*[0-9０-９]{1,2}\s*[】］\]〕])/.test(t)) return true;
-  return /^[0-9０-９]{1,2}(?![0-9０-９:：/／年月日時分])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
+  // 番号のすぐ後に空白か点があるときだけ（「2つ選びなさい」「3人の意見」の数字は問題番号ではない）
+  return /^[0-9０-９]{1,2}(?=[\s　.．、])(?![.．][0-9０-９])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
 }
 
 /**
@@ -1654,6 +1671,24 @@ function prepareQuestionLines(text) {
       }
       lines.push({ text: piece, src, guess });
     });
+  }
+  // 記号のすぐ後に空白も点もない選択肢（「ア東京」「イ大阪」「ウ名古屋」）：
+  // 行頭が ア・イ・ウ… の順に3行以上続くときだけ、選択肢とみなして記号の後に空白を入れる
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].text[0] !== "ア") continue;
+    let run = 0;
+    while (i + run < lines.length && run < KANA_ORDER.length) {
+      const t = lines[i + run].text;
+      const want = KANA_ORDER[run];
+      if (t.length < 2 || !(t[0] === want || (run > 0 && (KANA_LOOKALIKE[want] || []).includes(t[0])))) break;
+      run++;
+    }
+    if (run < 3) continue;
+    for (let k = 0; k < run; k++) {
+      const l = lines[i + k];
+      if (!KANA_SEP.test(l.text[1])) l.text = `${l.text[0]} ${l.text.slice(1)}`;
+    }
+    i += run - 1;
   }
   // 行頭の取り違えやすい形：前の行の記号の次の位置にあるときだけ読みかえる（例：ウ の次の行の「工」→「エ」）
   let prevKana = -1;
@@ -1861,6 +1896,10 @@ function renderReview() {
       input.type = "text";
       input.value = u.text;
       input.dataset.role = "line-edit";
+      // iPad の自動大文字・自動修正で、読み取った英文が勝手に変わらないようにする
+      input.setAttribute("autocapitalize", "off");
+      input.setAttribute("autocorrect", "off");
+      input.spellcheck = false;
       input.setAttribute("aria-label", "この行の正しい文字");
       const apply = el("button", "inline", "直す");
       apply.type = "button";
@@ -2230,6 +2269,7 @@ function fillDraft() {
 function applyAnswerText(text, providerId) {
   const status = $("ai-paste-status");
   status.classList.remove("error");
+  delete status.dataset.notice;
   if (!window.ClassiAI) { status.textContent = "AI機能の部品（ai-assist.js）を読み込めませんでした"; status.classList.add("error"); return false; }
   if (!String(text).trim()) { status.textContent = "先にAIの回答を貼り付けてください"; status.classList.add("error"); return false; }
   const provider = window.ClassiAI.getProvider(providerId);
@@ -2718,9 +2758,21 @@ result.addEventListener("change", () => { textEditedLogged = false; });
 result.addEventListener("input", () => {
   textConfirmed = false;
   closeConsent();   // 文章を直したら、前の確認は無効（確認画面を閉じる）
+  const hadAnswer = aiResult;
   aiResult = null;  // AIの解説は直す前の文章のものなので消す
   refreshReading();
+  if (hadAnswer) showAnswerResetNotice(hadAnswer.source);
 });
+
+/** 問題文を直して解説が消えたときの案内（もう一度整理するか、AIに聞き直す） */
+function showAnswerResetNotice(source) {
+  const st = $("ai-paste-status");
+  st.classList.add("error");
+  st.textContent = source === "server"
+    ? "問題文が変わったため、前のAIの解説を消しました。必要なら、もう一度「AIに解説してもらう」を押してください。"
+    : "問題文が変わったため、前の解説と下書きを消しました。同じ回答でよければ「回答を整理する」をもう一度押してください。問題文を大きく直したときは、質問文をコピーし直して、AIに聞き直してください。";
+  st.dataset.notice = "answer-reset";
+}
 
 $("confirm-text").addEventListener("click", () => {
   if (!result.value.trim()) {
@@ -2829,6 +2881,7 @@ $("clear-all").addEventListener("click", () => {
   explainStatus.textContent = "";
   $("ai-paste").value = "";
   $("ai-paste-status").textContent = "";
+  $("ai-paste-status").classList.remove("error");
   selftestResult.replaceChildren();
   items = [];
   editingId = null;

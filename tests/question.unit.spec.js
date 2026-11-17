@@ -144,6 +144,46 @@ test.describe("OCRの改善：「エ」と「工」・1行に並んだ選択肢�
   });
 });
 
+const cleanup = (text) => page.evaluate((t) => window.__classiAssistant.ocr.cleanupOcrText(t), text);
+
+test.describe("最終レビューの修正：数字で始まる行・日本語の選択肢", () => {
+  test("「2つ選びなさい」のように数字で始まる折り返しの行で、問題を切り分けない", async () => {
+    const r = await parse("問1 次の中から正しいものを\n2つ選びなさい。\nア．東京\nイ．大阪\nウ．名古屋");
+    expect(r.otherLines).toEqual([]);
+    expect(r.stemLines).toEqual(["問1 次の中から正しいものを", "2つ選びなさい。"]);
+    expect(r.choices.map((c) => c.text)).toEqual(["東京", "大阪", "名古屋"]);
+  });
+
+  test("「3人の意見」「3.5cm」で始まる行も、問題番号とみなさない", async () => {
+    expect((await parse("問2 次の文章を読みなさい。\nア．賛成\nイ．反対\n3人の意見を読み、答えなさい。")).otherLines).toEqual([]);
+    expect((await parse("問2 長さを答えなさい。\nア．1cm\nイ．2cm\n3.5cmの長さを求めなさい。")).otherLines).toEqual([]);
+  });
+
+  test("「3 次の…なさい。」「3．次の…なさい。」は、今までどおり次の問題とみなす", async () => {
+    expect((await parse("問2 選びなさい。\nア．あ\nイ．い\n3 次の英文を書きなさい。")).otherLines).toEqual(["3 次の英文を書きなさい。"]);
+    expect((await parse("問2 選びなさい。\nア．あ\nイ．い\n3．次の英文を書きなさい。")).otherLines).toEqual(["3．次の英文を書きなさい。"]);
+  });
+
+  test("日本語の選択肢が1行に並んでいても、4つに分ける（「工」は「エ」と判断して要確認）", async () => {
+    const r = await parse("問1 日本の首都を選びなさい。\nア 東京 イ 大阪 ウ 名古屋 工 福岡");
+    expect(r.choices.map((c) => [c.marker, c.text])).toEqual([["ア", "東京"], ["イ", "大阪"], ["ウ", "名古屋"], ["エ", "福岡"]]);
+    expect(r.choices[3].guess).toMatchObject({ from: "工", to: "エ" });
+  });
+
+  test("記号の後に空白も点もない日本語の選択肢（「ア東京」）も、ア・イ・ウの順に3行以上続けば分ける", async () => {
+    const r = await parse("問1 日本の首都を選びなさい。\nア東京\nイ大阪\nウ名古屋\n工福岡");
+    expect(r.choices.map((c) => c.text)).toEqual(["東京", "大阪", "名古屋", "福岡"]);
+    expect(r.choices[3].guess).toMatchObject({ from: "工", to: "エ" });
+    // 2行だけ（「アメリカ」「イギリス」）は、普通の言葉の可能性があるので分けない
+    expect((await parse("国の名前\nアメリカ\nイギリス")).choices).toEqual([]);
+  });
+
+  test("OCRの空白の整理で、1行に並んだ日本語の選択肢の区切りを消さない", async () => {
+    expect(await cleanup("ア 東 京 イ 大 阪 ウ 名 古 屋")).toBe("ア 東京 イ 大阪 ウ 名古屋");
+    expect(await cleanup("保 護 者 会 の お 知 ら せ")).toBe("保護者会のお知らせ");
+  });
+});
+
 test.describe("問題の種類 detectQuestionType", () => {
   const CASES = [
     ["次のうち正しいものを選べ。\nア．あ\nイ．い", "選択問題（記号で答える）"],

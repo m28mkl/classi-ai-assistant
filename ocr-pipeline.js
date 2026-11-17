@@ -431,6 +431,20 @@
 
   /** 日本語の部分の後処理：日本語の文字・数字の間の空白を取り除く */
   function fixJapanese(text) {
+    // 1行に並んだ選択肢（「ア 東京 イ 大阪 ウ 名古屋」）は、記号の前後の空白を消すと分けられなくなるので、
+    // 選択肢ごとに整えてから、空白でつなぎ直す
+    const pieces = splitInlineChoices(text);
+    if (pieces) {
+      return pieces.map((piece) => {
+        const m = piece.match(/^(\S)([.．、:：)）]?)[\s　]*(.*)$/u);
+        if (!m || !(CHOICE_LABELS.includes(m[1]) || Object.values(LABEL_LOOKALIKE).some((l) => l.includes(m[1])))) return fixJapaneseLine(piece);
+        return m[2] ? m[1] + m[2] + fixJapaneseLine(m[3]) : m[1] + " " + fixJapaneseLine(m[3]);
+      }).join(" ");
+    }
+    return fixJapaneseLine(text);
+  }
+
+  function fixJapaneseLine(text) {
     const J = "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}ー々〆、。・「」『』【】（）［］！？：；，．_＿";
     // 「20日 17:00」のような日付と時刻の間の空白は残す
     const gap = new RegExp(`([${J}0-9])[ \\t\\u3000]+(?=[${J}0-9])(?!\\d{1,2}:\\d{2})`, "gu");
@@ -503,7 +517,8 @@
     const t = String(text || "").trim();
     if (/^(?:問|第)\s*[0-9０-９]{1,2}(?![0-9０-９])/.test(t)) return true;
     if (/^(?:大問|[【［\[〔]\s*[0-9０-９]{1,2}\s*[】］\]〕])/.test(t)) return true;
-    return /^[0-9０-９]{1,2}(?![0-9０-９:：/／年月日時分])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
+    // 番号のすぐ後に空白か点があるときだけ（「2つ選びなさい」「3人の意見」の数字は問題番号ではない）
+    return /^[0-9０-９]{1,2}(?=[\s　.．、])(?![.．][0-9０-９])/.test(t) && QUESTION_WORDS.test(t) && /[\p{Script=Han}\p{Script=Hiragana}]/u.test(t);
   }
 
   /**

@@ -136,3 +136,66 @@ test.describe("要確認：その行をその場で直す", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 });
+
+test.describe("最終レビューの修正：iPadの自動修正・解説が消えたときの案内・日本語の選択肢", () => {
+  test("OCR結果欄・ここで直す欄・下書き欄・貼り付け欄で、自動大文字化と自動修正が無効", async ({ page }) => {
+    const TEXT = "問1 選びなさい。\nア．one\nイ．two";
+    await show(page, TEXT, [{ text: "イ．two", confidence: 40, words: [] }]);
+    for (const sel of ["#result", "#draft-text", "#ai-paste"]) {
+      const el = page.locator(sel);
+      await expect(el, sel).toHaveAttribute("autocapitalize", "off");
+      await expect(el, sel).toHaveAttribute("autocorrect", "off");
+      await expect(el, sel).toHaveAttribute("spellcheck", "false");
+    }
+    await page.click('#review [data-action="edit-line"]');
+    const input = page.locator('#review [data-role="line-edit"]');
+    await expect(input).toHaveAttribute("autocapitalize", "off");
+    await expect(input).toHaveAttribute("autocorrect", "off");
+    await expect(input).toHaveAttribute("spellcheck", "false");
+  });
+
+  test("問題文を直して解説が消えたら、もう一度整理するよう案内し、整理し直すと案内が消える", async ({ page }) => {
+    await show(page);
+    await page.click("#ai-paste-mock");
+    await expect(page.locator("#draft-box")).toBeVisible();
+    await page.fill("#result", REAL_CASE.replace("yesterday", "last week"));
+    const st = page.locator("#ai-paste-status");
+    await expect(st).toContainText("問題文が変わったため、前の解説と下書きを消しました");
+    await expect(st).toContainText("「回答を整理する」をもう一度押してください");
+    await expect(st).toHaveAttribute("data-notice", "answer-reset");
+    await expect(page.locator("#draft-box")).toBeHidden();
+    await page.click("#ai-paste-apply");
+    await expect(st).not.toContainText("問題文が変わった");
+    await expect(st).not.toHaveAttribute("data-notice", "answer-reset");
+    await expect(page.locator("#draft-box")).toBeVisible();
+  });
+
+  test("解説がないときに問題文を直しても、案内は出ない", async ({ page }) => {
+    await show(page);
+    await page.fill("#result", REAL_CASE + "\n追加");
+    await expect(page.locator("#ai-paste-status")).toHaveText("");
+  });
+
+  test("「ここで直す」で解説が消えたときも、案内が出る", async ({ page }) => {
+    const TEXT = "問1 選びなさい。\nア．one\nイ．two";
+    await show(page, TEXT, [{ text: "イ．two", confidence: 40, words: [] }]);
+    await page.click("#ai-paste-mock");
+    await page.click('#review [data-action="edit-line"]');
+    await page.fill('#review [data-role="line-edit"]', "イ．three");
+    await page.click('#review [data-action="apply-edit"]');
+    await expect(page.locator("#ai-paste-status")).toContainText("前の解説と下書きを消しました");
+  });
+
+  test("日本語の選択肢が1行に並んでいても、解説画面で4つに分かれる", async ({ page }) => {
+    await show(page, "問1 日本の首都を選びなさい。\nア 東京 イ 大阪 ウ 名古屋 工 福岡");
+    await expect(page.locator("#ex-question-body .q-choices .text")).toHaveText(["東京", "大阪", "名古屋", "福岡"]);
+    await expect(page.locator("#ex-question-body .q-choices li").nth(3).locator(".badge")).toHaveText("要確認");
+  });
+
+  test("「2つ選びなさい」の折り返しがあっても、別の問題として分けない", async ({ page }) => {
+    await show(page, "問1 次の中から正しいものを\n2つ選びなさい。\nア．東京\nイ．大阪\nウ．名古屋");
+    await expect(page.locator("#ex-other")).toHaveCount(0);
+    await expect(page.locator("#ex-question-body .q-stem")).toContainText("2つ選びなさい。");
+    await expect(page.locator("#ex-question-body .q-choices li")).toHaveCount(3);
+  });
+});
