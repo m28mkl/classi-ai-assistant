@@ -51,6 +51,7 @@ Classiの画面を自動で読み取ることはできません（Webアプリ�
 ## くわしい資料
 
 - [iPad Air での使い方と、Safari での確認方法](docs/ipad-guide.md)（Classiの問題を読み取ってから下書きを作るまで）
+- [iPad 実機テストのチェックリスト](docs/ipad-device-test.md)（8つの手順を○×で確認）
 - [Classi Web版との連携・操作補助の調査](docs/classi-integration.md)（できること・できないこと・費用）
 - [GitHub Pages で公開する準備](docs/github-pages.md)
 - [開発記録](docs/DEVELOPMENT_LOG.md)
