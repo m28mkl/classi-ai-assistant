@@ -153,18 +153,24 @@ test.describe("Classi実画像：画面から読み取った結果（改善後�
     expect(text.split("\n").filter((l) => /^[アイウエ\s]+$/.test(l.trim()))).toEqual([]);
   });
 
-  test("自信がない部分は、元の画像から切り出して確信度と一緒に表示する", async () => {
-    const items = page.locator("#review-uncertain li");
-    const n = await items.count();
+  test("自信がない部分は、要確認の一覧（1か所）に、元の画像の切り抜きと確信度つきで表示する", async () => {
+    const rows = page.locator("#review .review-row");
+    expect(await rows.count()).toBeGreaterThan(0);
+    const crops = page.locator("#review .review-row .crop");
+    const n = await crops.count();
     expect(n).toBeGreaterThan(0);
-    const withImage = await items.evaluateAll((els) => els.filter((li) => li.querySelector("canvas") && /確信度 \d+%/.test(li.textContent)).length);
+    const withImage = await crops.evaluateAll((els) => els.filter((c) => c.querySelector("canvas") && /確信度 \d+%/.test(c.textContent)).length);
     expect(withImage).toBe(n);
+    // 以前の「自信がない部分」の別の一覧はない（要確認は1か所だけ）
+    await expect(page.locator("#review-uncertain")).toHaveCount(0);
   });
 
-  test("自動で直した箇所を表示し、推測で判断したもの（「=」→「⇒」など）は「要確認」とする", async () => {
+  test("自動で直した箇所を表示し、推測で判断したもの（「=」→「⇒」など）は要確認の一覧に出す", async () => {
     const changes = page.locator("#review-changes li");
     await expect(changes.filter({ hasText: "代名詞の I" }).first()).toBeVisible();
-    await expect(changes.filter({ hasText: "⇒" })).toContainText("要確認");
+    const guess = page.locator("#review-guess li");
+    await expect(guess.filter({ hasText: "⇒" })).toContainText("要確認");
+    await expect(changes.filter({ hasText: "⇒" })).toHaveCount(0);
   });
 
   test("元の画像と、除外した部分・読み取った行を重ねて表示する（元画像と結果を見比べられる）", async () => {

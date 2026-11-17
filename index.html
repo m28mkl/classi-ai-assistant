@@ -141,6 +141,14 @@ button[aria-busy="true"] { cursor: progress; }
 .ocr-options .check { align-items: center; }
 .ocr-options .check input { flex: none; width: 26px; height: var(--tap); margin: 0; accent-color: var(--accent); }
 .review h3 { font-size: 16px; margin: 18px 0 6px; }
+.ocr-detail { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.ocr-detail > summary { font-weight: 700; min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+#sec-result .review-diff { grid-template-columns: 1fr; }
+.review-row .crops { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; }
+.review-row .crop { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.review-row .crop canvas { max-width: 140px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.guess-list li { display: block; background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; margin-top: 6px; font-size: 14px; list-style: none; overflow-wrap: anywhere; }
+.guess-list { margin: 6px 0 0; padding: 0; }
 .review h3 .count { color: var(--muted); font-weight: 400; font-size: 14px; }
 .review-image summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; color: var(--brand); font-weight: 600; }
 #review-canvas { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
@@ -509,6 +517,24 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
   <textarea id="result"
     placeholder="ここにOCR結果が表示されます（手で直接修正できます）"></textarea>
   <div id="review" aria-live="polite"></div>
+<details class="review ocr-detail" id="ocr-review" hidden open>
+  <summary id="review-title">元の画像と見比べて直す（くわしい確認）</summary>
+  <p class="small">自動で読み取った内容です。元の画像と見比べて、違うところを直してから「読み取った情報に反映」を押してください。
+    自信がない部分（要確認）は、上の「要確認」の一覧に、元の画像の切り抜きと一緒に表示しています。</p>
+  <details class="review-image" open>
+    <summary>元の画像と見比べる</summary>
+    <canvas id="review-canvas" aria-label="元の画像と読み取った範囲"></canvas>
+    <p class="small legend"><span class="sw sw-ex"></span>読み取りから除外した部分　<span class="sw sw-line"></span>読み取った行　<span class="sw sw-unc"></span>自信がない部分</p>
+  </details>
+  <div id="review-fields"></div>
+  <h3>自動で直した箇所 <span class="count" id="review-changes-count"></span></h3>
+  <p class="small">決まったルールで直したところです（推測で直したところは、上の「要確認」に出ています）。</p>
+  <ul id="review-changes" class="review-list"></ul>
+  <h3>修正前と修正後の比較</h3>
+  <p class="small">修正前：OCRが読み取ったまま（自動修正の前）。修正後：自動修正とあなたの編集を反映した内容。<del>赤の取り消し線</del>は消えた文字、<ins>緑</ins>は加わった文字です。</p>
+  <div class="review-diff" id="review-diff"></div>
+  <button id="review-apply">読み取った情報に反映</button>
+</details>
   <button id="confirm-text" class="secondary">この内容で合っています</button>
   <p id="confirm-state" class="confirm-state" role="status">未確認</p>
   <p class="small">読み取りは間違えることがあります。Classiの画面と見比べて、必要なら上の欄を直接修正してください。解説の質問文は、確認したあとに作れます。</p>
@@ -532,25 +558,6 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 </div>
 <div class="col-main">
 
-<section class="card review" id="ocr-review" hidden aria-labelledby="review-title">
-  <h2 id="review-title">読み取り結果の確認</h2>
-  <p class="small">自動で読み取った内容です。元の画像と見比べて、違うところを直してから「読み取った情報に反映」を押してください。
-    読み取りに自信がない部分と、自動で直した箇所は下に表示しています。正しいかどうかは、必ず画像で確かめてください。</p>
-  <details class="review-image" open>
-    <summary>元の画像と見比べる</summary>
-    <canvas id="review-canvas" aria-label="元の画像と読み取った範囲"></canvas>
-    <p class="small legend"><span class="sw sw-ex"></span>読み取りから除外した部分　<span class="sw sw-line"></span>読み取った行　<span class="sw sw-unc"></span>自信がない部分</p>
-  </details>
-  <div id="review-fields"></div>
-  <h3>読み取りに自信がない部分 <span class="count" id="review-uncertain-count"></span></h3>
-  <ul id="review-uncertain" class="review-list"></ul>
-  <h3>自動で直した箇所 <span class="count" id="review-changes-count"></span></h3>
-  <ul id="review-changes" class="review-list"></ul>
-  <h3>修正前と修正後の比較</h3>
-  <p class="small">修正前：OCRが読み取ったまま（自動修正の前）。修正後：自動修正とあなたの編集を反映した内容。<del>赤の取り消し線</del>は消えた文字、<ins>緑</ins>は加わった文字です。</p>
-  <div class="review-diff" id="review-diff"></div>
-  <button id="review-apply">読み取った情報に反映</button>
-</section>
 
 <div class="card" id="sec-explain">
   <h2>③ 問題の整理とAI解説 <span class="badge b-pre">AI接続前</span></h2>
@@ -1539,9 +1546,10 @@ function uncertainOf(result) {
     if (!text) return;
     const confs = (line.parts || []).map((p) => p.confidence).filter((c) => typeof c === "number");
     const conf = confs.length ? Math.min(...confs) : null;
+    // 改善版OCRは、確信度80%未満の単語を「自信がない部分」として返す（元の画像での位置つき）
     const words = (result.uncertain || [])
-      .filter((u) => u.line === i && typeof u.confidence === "number" && u.confidence < OCR_CONF.word)
-      .map((u) => ({ text: String(u.text).trim(), confidence: u.confidence }))
+      .filter((u) => u.line === i && typeof u.confidence === "number")
+      .map((u) => ({ text: String(u.text).trim(), confidence: u.confidence, rect: u.rect }))
       .filter((w) => w.text);
     if ((conf !== null && conf < OCR_CONF.line) || words.length) out.push({ text, confidence: conf, words });
   });
@@ -1625,6 +1633,7 @@ function detectQuestionType(text) {
 /* ---------------- 読み取り結果の確認（要確認・確認済み） ---------------- */
 let ocrMeta = null;       // 直近のOCRの結果情報（手で入力したときは null）
 let uncertain = [];       // 要確認の行 { id, text, confidence, words, done, edited }
+let guesses = [];         // 改善版OCRが推測で直した箇所（「=」→「⇒」など）。要確認の一覧に一緒に表示する
 let textConfirmed = false; // 本人が「この内容で合っています」を押したか
 
 function currentLines() {
@@ -1679,6 +1688,7 @@ function renderReview() {
   }
   if (!uncertain.length) {
     box.append(el("p", "review-note", "自信のない行は見つかりませんでした（自動判定です。念のため自分の目でも確認してください）。"));
+    renderGuesses(box);
     return;
   }
   const open = uncertain.filter((u) => !u.done).length;
@@ -1693,6 +1703,17 @@ function renderReview() {
       u.confidence === null ? "" : ` 自信度 ${u.confidence}%`,
     );
     li.append(head, lineWithMarks(u));
+    // 元の画像から、自信がない単語を切り出して見せる（改善版OCRのときだけ）
+    const withRect = lastOcr?.source ? u.words.filter((w) => w.rect) : [];
+    if (withRect.length && !u.done) {
+      const crops = el("div", "crops");
+      for (const w of withRect.slice(0, 6)) {
+        const c = el("span", "crop");
+        c.append(cropThumb(lastOcr.source, w.rect), `「${w.text}」 確信度 ${w.confidence}%`);
+        crops.append(c);
+      }
+      li.append(crops);
+    }
     if (!u.done) {
       const actions = el("div", "review-actions");
       const pick = el("button", "secondary inline", "この行を選んで修正");
@@ -1709,9 +1730,24 @@ function renderReview() {
     list.append(li);
   }
   box.append(list);
+  renderGuesses(box);
   if (open >= 3 && !ocrMeta.enhanced) {
     box.append(el("p", "review-note", "要確認が多いときは、「① 画面を読み取る」で「画像を補正して読み取る」をオンにして、もう一度読み取ると良くなることがあります（今の修正内容は上書きされます）。"));
   }
+}
+
+/** 推測で直した箇所（要確認）を、要確認の一覧の下に表示する */
+function renderGuesses(box) {
+  if (!guesses.length) return;
+  box.append(el("h3", "guess-title", `自動で推測して直したところ ${guesses.length}件（要確認）`));
+  const ul = el("ul", "guess-list");
+  ul.id = "review-guess";
+  for (const c of guesses) {
+    const li = el("li");
+    li.append(el("span", "badge b-check", "要確認"), ` 「${c.from}」→「${c.to}」：${c.reason}`);
+    ul.append(li);
+  }
+  box.append(ul);
 }
 
 function updateConfirmUi() {
@@ -2176,7 +2212,6 @@ function showOcrError(error) {
 const reviewEl = $("ocr-review");
 const reviewCanvas = $("review-canvas");
 const reviewFields = $("review-fields");
-const reviewUncertain = $("review-uncertain");
 const reviewChanges = $("review-changes");
 const reviewDiff = $("review-diff");
 let lastOcr = null;
@@ -2188,6 +2223,7 @@ function readOptions() {
 function hideReview() {
   reviewEl.hidden = true;
   lastOcr = null;
+  guesses = [];
 }
 
 const QUESTION_FIELDS = [
@@ -2329,45 +2365,56 @@ function showReview(ocr) {
     reviewFields.append(makeField("body", "読み取った文章", "textarea", "ja", ocr.text));
   }
 
-  reviewUncertain.replaceChildren();
-  for (const u of ocr.uncertain || []) {
-    const li = el("li");
-    li.append(cropThumb(ocr.source, u.rect), el("span", "", `「${u.text.trim()}」 確信度 ${u.confidence}%（${u.line + 1}行目）`));
-    reviewUncertain.append(li);
-  }
-  if (!reviewUncertain.children.length) reviewUncertain.append(el("li", "empty-note", "ありません"));
-  $("review-uncertain-count").textContent = `${(ocr.uncertain || []).length}件`;
-
   reviewChanges.replaceChildren();
   // 同じ修正はまとめて「×回数」で表示する
   const grouped = new Map();
-  for (const c of ocr.changes || []) {
+  for (const c of (ocr.changes || []).filter((x) => !x.uncertain)) {
     const key = `${c.from}\u0000${c.to}\u0000${c.reason}`;
     if (grouped.has(key)) grouped.get(key).count++;
     else grouped.set(key, { ...c, count: 1 });
   }
   for (const c of grouped.values()) {
     const li = el("li");
-    if (c.uncertain) li.append(el("span", "tag", "要確認"));
     li.append(el("span", "", `「${c.from}」→「${c.to}」${c.count > 1 ? ` ×${c.count}` : ""}：${c.reason}`));
     reviewChanges.append(li);
   }
   if (!reviewChanges.children.length) reviewChanges.append(el("li", "empty-note", "ありません"));
-  $("review-changes-count").textContent = `${(ocr.changes || []).length}件`;
+  $("review-changes-count").textContent = `${(ocr.changes || []).filter((x) => !x.uncertain).length}件`;
 
+  guesses = (ocr.changes || []).filter((x) => x.uncertain);
   drawReviewImage(ocr);
   renderReviewDiff();
   reviewEl.hidden = false;
+  renderReview();
   log("読み取り結果の確認画面を表示");
 }
 
 $("review-apply").addEventListener("click", () => {
   if (!lastOcr) return;
   result.value = reviewText();
+  // 手で直したときと同じ扱い（確認のやり直し・要確認の更新・古い解説の取り消し）
+  result.dispatchEvent(new Event("input"));
   status.classList.remove("error");
   status.textContent = "確認した内容を「読み取った情報」に反映しました";
   log("確認した内容を「読み取った情報」に反映");
 });
+
+/** OCRの結果を画面に反映する（読み取りボタンの処理。画面テストでも同じ処理を使う） */
+function applyOcrResult(out, enhance = false) {
+  const text = out.text;
+  result.value = text;
+  ocrMeta = { hasConfidence: out.hasConfidence, enhanced: enhance };
+  uncertain = out.uncertainLines.map((u, i) => ({ id: i + 1, ...u, done: false, edited: false }));
+  textConfirmed = false;
+  closeConsent();
+  aiResult = null;
+  refreshReading();
+  status.textContent = "読み取り完了！";
+  log(`画像の読み取り完了（${text.split(/\n/).filter((l) => l.trim()).length}行）`);
+  if (enhance) log("画像を補正して読み取りました");
+  if (uncertain.length) log(`読み取りに自信がない行：${uncertain.length}件（要確認）`);
+  showReview(out);
+}
 
 /* ---------------- 操作 ---------------- */
 read.addEventListener("click", async () => {
@@ -2387,19 +2434,7 @@ read.addEventListener("click", async () => {
   try {
     const enhance = $("enhance").checked;
     const out = await recognizeDetailed(image.files[0], showProgress, { enhance, ...readOptions() });
-    const text = out.text;
-    result.value = text;
-    ocrMeta = { hasConfidence: out.hasConfidence, enhanced: enhance };
-    uncertain = out.uncertainLines.map((u, i) => ({ id: i + 1, ...u, done: false, edited: false }));
-    textConfirmed = false;
-    closeConsent();
-    aiResult = null;
-    refreshReading();
-    status.textContent = "読み取り完了！";
-    log(`画像の読み取り完了（${text.split(/\n/).filter((l) => l.trim()).length}行）`);
-    if (enhance) log("画像を補正して読み取りました");
-    if (uncertain.length) log(`読み取りに自信がない行：${uncertain.length}件（要確認）`);
-    showReview(out);
+    applyOcrResult(out, enhance);
   } catch (error) {
     showOcrError(error);
     log("画像の読み取りに失敗");
@@ -2598,6 +2633,7 @@ $("clear-all").addEventListener("click", () => {
   items = [];
   editingId = null;
   filter = "all";
+  hideReview();
   ocrMeta = null;
   uncertain = [];
   textConfirmed = false;
@@ -2680,6 +2716,12 @@ window.__classiAssistant = {
   parseQuestion, detectQuestionType, buildExplainPrompt, buildAiPayload,
   ai: { endpoint: AI_ENDPOINT, readAiEndpoint },
   ocr: { config: OCR, loadTesseract, judgeSelftest, cleanupOcrText, collectUncertain, enhanceImageData, confidence: OCR_CONF },
+  // 画面の確認用：改善版OCRの結果（位置情報つき）を、読み取りボタンと同じ処理で画面に反映する
+  showOcrResult(ocr) {
+    hideReview();
+    const u = uncertainOf(ocr);
+    applyOcrResult({ ...ocr, hasConfidence: u.hasConfidence, uncertainLines: u.uncertain });
+  },
   // 画面の確認用：OCRの結果を画面に反映する（read ボタンの処理と同じ）
   showReading({ text, hasConfidence = true, uncertain: list = [], enhanced = false }) {
     result.value = text;
