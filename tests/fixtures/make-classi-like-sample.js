@@ -26,9 +26,10 @@ body { width: 1180px; height: 820px; background: #fff; font-family: "Noto Sans C
 .inst { top: 190px; font-size: 16px; }
 .pill { top: 237px; font-size: 13px; font-weight: 700; color: #666; background: #ececec; border-radius: 14px; padding: 4px 10px; }
 .sub { top: 274px; font-size: 16px; }
-.en { top: 330px; font-size: 16px; font-family: "Helvetica Neue", Arial, sans-serif; }
-.en .ja { font-family: "Noto Sans CJK JP", sans-serif; margin-left: 24px; }
-.rw { top: 358px; font-size: 16px; font-family: "Helvetica Neue", Arial, sans-serif; }
+.en { top: 328px; font-size: 16px; line-height: 22px; font-family: "Helvetica Neue", Arial, sans-serif; }
+.dir { top: 328px; left: 600px; font-size: 16px; line-height: 22px; }
+.arrow { font-family: "Noto Sans CJK JP", sans-serif; }
+.rw { top: 358px; font-size: 16px; line-height: 22px; font-family: "Helvetica Neue", Arial, sans-serif; }
 .label { top: 394px; font-size: 13px; color: #999; }
 .ch { font-size: 16px; }
 .ch b { display: inline-block; width: 36px; font-weight: 700; font-family: "Noto Sans CJK JP", sans-serif; }
@@ -46,12 +47,13 @@ body { width: 1180px; height: 820px; background: #fff; font-family: "Noto Sans C
 </style></head><body>
 <div class="top"><div class="status">9:41　11月17日(火)</div><div class="status-r">58%</div><div class="back">‹</div><div class="close">×</div></div>
 <div class="video"><div class="bar"><div class="time">03:28</div><div class="seek"></div><div class="ico" style="right:96px"></div><div class="ico" style="right:72px"></div><div class="ico" style="right:48px"></div><div class="ico" style="right:24px"></div></div></div>
-<div class="c title">練習問題_関係代名詞と前置詞A</div>
+<div class="c title">練習問題_関係代名詞と前置詞02</div>
 <div class="c inst">次の問いに答えなさい。</div>
 <div class="c pill">小問01</div>
 <div class="c sub">次の英文を指示にしたがって書きかえるとき，（　　）に入るものを選びなさい。</div>
-<div class="c en">This is the park. I played in it last week.<span class="ja">（一つの文に）</span></div>
-<div class="c rw">⇒This is the park (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;) last week.</div>
+<div class="c en">This is the park. I played in it last week.</div>
+<div class="c dir">（一つの文に）</div>
+<div class="c rw"><span class="arrow">⇒</span>This is the park (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;) last week.</div>
 <div class="c label">選択肢</div>
 <div class="c ch" style="top:424px"><b>ア</b><span>in I played which</span></div>
 <div class="c ch" style="top:464px"><b>イ</b><span>which in I played</span></div>

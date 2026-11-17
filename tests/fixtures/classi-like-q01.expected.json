@@ -1,6 +1,6 @@
 {
   "_note": "架空の問題画面（classi-like-q01.png。tests/fixtures/make-classi-like-sample.js で作成したオリジナル）のOCR評価用の正解データ。選択肢の文法的な正誤は評価の対象外で、画面に表示されているとおりに記載している。",
-  "title": "練習問題_関係代名詞と前置詞A",
+  "title": "練習問題_関係代名詞と前置詞02",
   "instruction": "次の問いに答えなさい。",
   "subNumber": "01",
   "subInstruction": "次の英文を指示にしたがって書きかえるとき、（ ）に入るものを選びなさい。",
