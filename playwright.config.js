@@ -41,13 +41,13 @@ module.exports = defineConfig({
     {
       // OCRの読み込み・エラー処理・実際の文字認識（iPad Air 縦向き、Chromium）
       name: "ocr",
-      testMatch: /ocr\.spec\.js/,
+      testMatch: /ocr(-accuracy)?\.spec\.js/,
       use: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
     },
     // Safari と同じエンジン（WebKit）での OCR テスト。WebKit をインストールした環境で OCR_WEBKIT=1 を指定して実行
     ...(process.env.OCR_WEBKIT ? [{
       name: "ocr-webkit",
-      testMatch: /ocr\.spec\.js/,
+      testMatch: /ocr(-accuracy)?\.spec\.js/,
       use: { browserName: "webkit", viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
     }] : []),
   ],

@@ -96,6 +96,12 @@ function createServer(config, { fetchImpl, now } = {}) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "X-Content-Type-Options": "nosniff" });
         return res.end(html);
       }
+      if (config.serveStatic && req.method === "GET" && url.pathname === "/ocr-pipeline.js") {
+        // OCRの改善処理（画面と一緒に配る。ないと従来のOCRになる）
+        const js = fs.readFileSync(path.join(__dirname, "..", "ocr-pipeline.js"), "utf8");
+        res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "X-Content-Type-Options": "nosniff" });
+        return res.end(js);
+      }
       send(req, res, 404, { ok: false, code: "not_found" });
     } catch {
       // 内容はログに出さない（問題文や秘密が入る可能性があるため）
