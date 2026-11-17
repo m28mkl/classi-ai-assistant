@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#263b70">
+<meta name="apple-mobile-web-app-title" content="Classi AI">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <!-- AI解説サーバーの接続先。空のときは「AI未接続」で動く（docs/ai-server.md）。APIキーはここに書かない -->
 <meta name="classi-ai-endpoint" content="">
 <title>Classi AI Assistant</title>
@@ -165,7 +168,7 @@ button[aria-busy="true"] { cursor: progress; }
 .review-list { list-style: none; margin: 0; padding: 0; }
 .review-list li { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf0f6; font-size: 14px; overflow-wrap: anywhere; }
 .review-list canvas { flex: none; max-width: 140px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
-.review-list .tag { flex: none; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
+.review-list .tag { flex: none; font-size: 13px; padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
 .review-list .empty-note { color: var(--muted); }
 .review-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
 .review-diff > div { background: #f7f8fb; border-radius: 8px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
@@ -272,7 +275,7 @@ button[aria-busy="true"] { cursor: progress; }
 .task-due .left { margin-left: 6px; font-size: 13px; color: var(--muted); }
 .task.overdue .task-due .left { color: var(--danger); font-weight: 700; }
 .task-memo { margin: 6px 0 0; font-size: 14px; white-space: pre-wrap; }
-.task-source { margin: 6px 0 0; font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+.task-source { margin: 6px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
 
 .task-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .task-actions button { flex: 1 1 auto; }
@@ -425,7 +428,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
 .ai-usage .row { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .ai-usage .row + .row { margin-top: 2px; }
 .ai-usage strong { font-variant-numeric: tabular-nums; }
-.ai-usage .note { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.ai-usage .note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .ai-usage .warn { margin: 6px 0 0; font-size: 13px; color: var(--warn); font-weight: 700; }
 .ai-confirm { margin-top: 12px; padding: 12px; border: 2px solid var(--accent); border-radius: 12px; background: #f5f7ff; }
 .ai-confirm h3 { margin: 0 0 6px; font-size: 17px; }
@@ -457,6 +460,7 @@ html { scroll-padding-top: 72px; scroll-behavior: smooth; }
   <a href="#sec-read">読み取る</a>
   <a href="#sec-result">確認</a>
   <a href="#sec-explain">解説</a>
+  <a href="#paste-details">回答</a>
   <a href="#sec-tasks">課題</a>
 </nav>
 
