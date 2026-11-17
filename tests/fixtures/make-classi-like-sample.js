@@ -26,14 +26,14 @@ body { width: 1180px; height: 820px; background: #fff; font-family: "Noto Sans C
 .inst { top: 190px; font-size: 16px; }
 .pill { top: 237px; font-size: 13px; font-weight: 700; color: #666; background: #ececec; border-radius: 14px; padding: 4px 10px; }
 .sub { top: 274px; font-size: 16px; }
-.en { top: 328px; font-size: 16px; line-height: 22px; font-family: "Helvetica Neue", Arial, sans-serif; }
+.en { top: 328px; font-size: 16px; line-height: 22px; font-family: "Liberation Sans", Arial, sans-serif; }
 .dir { top: 328px; left: 600px; font-size: 16px; line-height: 22px; }
 .arrow { font-family: "Noto Sans CJK JP", sans-serif; }
-.rw { top: 358px; font-size: 16px; line-height: 22px; font-family: "Helvetica Neue", Arial, sans-serif; }
+.rw { top: 358px; font-size: 16px; line-height: 22px; font-family: "Liberation Sans", Arial, sans-serif; }
 .label { top: 394px; font-size: 13px; color: #999; }
 .ch { font-size: 16px; }
 .ch b { display: inline-block; width: 36px; font-weight: 700; font-family: "Noto Sans CJK JP", sans-serif; }
-.ch span { font-family: "Helvetica Neue", Arial, sans-serif; }
+.ch span { font-family: "Liberation Sans", Arial, sans-serif; }
 .ans { position: absolute; left: 0; top: 579px; width: 1180px; height: 104px; background: #f0f0f0; border-top: 1px solid #ddd; }
 .chev { position: absolute; left: 584px; top: 8px; width: 10px; height: 10px; border-right: 2px solid #888; border-bottom: 2px solid #888; transform: rotate(45deg); }
 .line { position: absolute; left: 0; right: 0; top: 30px; border-top: 1px solid #d0d0d0; }
